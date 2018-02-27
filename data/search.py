@@ -60,3 +60,14 @@ def select_from_date(path_to_db, start_date, end_date=None):
 
     return query_sentences
 
+def get_all_text(path_to_db):
+
+    conn = sqlite3.connect(path_to_db)
+
+    all_text = pd.read_sql_query("""
+    SELECT s.sentence
+    FROM sentences s
+    """, conn)
+
+    return all_text
+

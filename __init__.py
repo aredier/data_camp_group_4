@@ -11,3 +11,4 @@ authors :
 """
 
 from .data import build_data_base, update
+from .preprocessing import build_vocab
