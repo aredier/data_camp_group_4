@@ -27,6 +27,7 @@ def update(path_to_base, date=None):
         'USER_AGENT': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:57.0) Gecko/20100101 Firefox/57.0',
         "path": path_to_base,
         "date_time" : date,
+        "LOG_LEVEL" : "INFO",
         "ITEM_PIPELINES": {
             'group_4_backend.data.scrapy_scrapers.scrapy_scrapers.pipelines.ScrapyScrapersPipeline': 300,
         },

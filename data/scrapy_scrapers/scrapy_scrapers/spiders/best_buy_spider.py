@@ -11,7 +11,7 @@ class BestBuySpider(Spider):
     name = "best_buy_spider"
 
     # Custom params
-    follow_pages = False
+    follow_pages = True
 
     urls = ["https://www.bestbuy.com/site/iphone/iphone-x/pcmcat1505326434742.c?id=pcmcat1505326434742"
             ]
