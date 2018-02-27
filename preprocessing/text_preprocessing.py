@@ -42,7 +42,8 @@ def build_vocab(*data_frames, preprocess=False):
     if preprocess:
         assert all(["sentence" in df.columns for df in data_frames]), "all data frames must have a sentence column"
         for i in range(len(data_frames)):
-            data_frames[i]["tokenized_text"] = data_frames[i]["sentence"].apply(tokenize_lematize)
+            if not "tokenized_text" in data_frames[i].columns:
+                data_frames[i]["tokenized_text"] = data_frames[i]["sentence"].apply(tokenize_lematize)
 
     assert all(["tokenized_text" in df.columns for df in data_frames])
     vocab = list(set(itertools.chain(*[set(itertools.chain(*df.tokenized_text.tolist())) for df in data_frames])))
