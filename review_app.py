@@ -169,8 +169,7 @@ class ReviewApp:
             if self._model_params is None:
                 self._model_params = {'gamma': 0.0001, 'max_depth': 250, 'n_estimators': 500}
 
-            self._model = XGBClassifier()
-            self._model.set_params(self._model_params)
+            self._model = XGBClassifier(self._model_params)
             self._model.fit(x_train, y_train)
 
         if do_test_analysis:
