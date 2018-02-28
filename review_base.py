@@ -107,7 +107,7 @@ class ReviewBase:
             unlabeled = pd.read_csv(unlabeled)
             unlabeled.progress_apply(lambda row: self._insert_unlabeled(session, row, insert_date), axis=1)
 
-    def update(self, update_date=None):
+    def update(self, update_date=None, log_file=None):
 
         if not update_date:
             session = self._session_maker()
@@ -117,11 +117,11 @@ class ReviewBase:
             else:
                 update_date = update_date.date_time.replace(tzinfo=None)
 
-        process = CrawlerProcess({
+        process_args = {
+            "LOG_LEVEL" : "INFO",
             'USER_AGENT': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:57.0) Gecko/20100101 Firefox/57.0',
             "path": self._path,
             "date_time": update_date,
-            "LOG_LEVEL": "INFO",
             "ITEM_PIPELINES": {
                 'group_4_backend.scrapy_scrapers.scrapy_scrapers.pipelines.ScrapyScrapersPipeline': 300,
             },
@@ -129,18 +129,21 @@ class ReviewBase:
             "CONCURRENT_REQUESTS": 32,
             "CONCURRENT_REQUESTS_PER_DOMAIN ": 32,
             "AUTOTHROTTLE_ENABLED": False,
-        })
+        }
+        if log_file is not None:
+            process_args["LOG_FILE"] = log_file
+        process = CrawlerProcess(process_args)
 
         process.crawl(BestBuySpider)
         process.start()
 
-    def build_and_update(self, labeled=None, unlabeled=None, update=True):
+    def build_and_update(self, labeled=None, unlabeled=None, update=True, log_file=None):
 
         print("\n BUILDING BASE FROM CSVs")
         self._build(labeled=labeled, unlabeled=unlabeled)
         if update:
             print("\nSCRAPPING NEW DATA")
-            self.update()
+            self.update(log_file=log_file)
 
     def update_predictions(self, predictions_df):
         assert "sentence_id" in predictions_df.columns, "sentence id must be specified to update predictions"
@@ -244,6 +247,7 @@ class ReviewBase:
         query_str = """
         SELECT s.sentence
         FROM sentences s
+        LIMIT 1000
         """
 
         return self._run_sql(query_str)

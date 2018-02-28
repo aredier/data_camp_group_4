@@ -12,21 +12,22 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.metrics import classification_report
 
-
 from xgboost import XGBClassifier
 
 import pandas as pd
 
 import numpy as np
 
-from tqdm import tqdm
+import networkx as nx
 
+import spacy
+
+from tqdm import tqdm
 
 from .review_base import ReviewBase
 
 
 class ReviewApp:
-
     def __init__(self, path_to_base):
 
         self._base = ReviewBase(path_to_base)
@@ -34,9 +35,10 @@ class ReviewApp:
         self._model_params = None
         self._vocab = None
 
-    def build_data_base(self, labeled=None, unlabeled=None):
+    def build_data_base(self, labeled=None, unlabeled=None, log_file=None):
 
-        self._base.build_and_update(labeled=labeled, unlabeled=unlabeled)
+        self._base.build_and_update(labeled=labeled, unlabeled=unlabeled, log_file=log_file)
+
     def update_data_base(self):
 
         self._base.update()
@@ -61,8 +63,8 @@ class ReviewApp:
         # removing stop words
         english_stopwords = set(stopwords.words("english"))
         non_stopwords = {"not", "same", "too", "doesn't", "don't", 'doesn', "didn't", 'didn', "hasn't",
-                             'hasn', "aren't", 'aren', "isn't", 'isn', "shouldn't", 'shouldn', 'wasn', "wasn't",
-                             'weren', "weren't", 'won', "won't"}
+                         'hasn', "aren't", 'aren', "isn't", 'isn', "shouldn't", 'shouldn', 'wasn', "wasn't",
+                         'weren', "weren't", 'won', "won't"}
         english_stopwords = set([word for word in english_stopwords if word not in non_stopwords])
         tokens = [token for token in tokens if token not in english_stopwords]
         # lematizing the tokens
@@ -70,6 +72,20 @@ class ReviewApp:
             lmtzer = WordNetLemmatizer()
             tokens = [lmtzer.lemmatize(word) for word in tokens]
         return tokens
+
+    @staticmethod
+    def _noun_tokenize(sentence, nlp, noun_count=3):
+
+        noun_tokens = [w.lemma_ for w in nlp(sentence.lower()) if w.pos_ == 'NOUN']
+        if len(noun_tokens) < noun_count:
+            return
+        english_stopwords = set(stopwords.words("english"))
+        non_stopwords = {"not", "same", "too", "doesn't", "don't", 'doesn', "didn't", 'didn', "hasn't",
+                         'hasn', "aren't", 'aren', "isn't", 'isn', "shouldn't", 'shouldn', 'wasn', "wasn't",
+                         'weren', "weren't", 'won', "won't"}
+        english_stopwords = set([word for word in english_stopwords if word not in non_stopwords])
+        noun_tokens = [n for n in noun_tokens if n not in english_stopwords]
+        return noun_tokens
 
     @staticmethod
     def _tokenize_df(df, target="sentence"):
@@ -227,9 +243,38 @@ class ReviewApp:
         print("updating data base")
         self._base.update_predictions(result_df)
 
-    def find_issues(self, start_date=datetime(2018,1,1), end_date=None):
+    def find_issues(self, start_date=datetime(2018, 1, 1), end_date=None):
 
         data = self._base.select_detected_issue_from_date(start_date, end_date)
-        return data.loc[:,["date_time", "sentence"]]
+        return data.loc[:, ["date_time", "sentence"]]
 
+    # UNSUPERVISED TASKS
+    # graph of words
+    #
+    #
+    #
+    @staticmethod
+    def _word_neighbors(df, dist=2):
+        assert "noun_tokens" in df.columns, "df must be tokenized before distances can be computed"
+        return pd.concat([pd.DataFrame([clean_sentence[:-dist], clean_sentence[dist:]]).T for clean_sentence in
+                          df.noun_tokens.tolist() if clean_sentence is not None]).rename(columns={0: 'w0', 1: 'w1'}) \
+            .reset_index(drop=True)
 
+    def _compute_distances(self, spacy_en_dir="en"):
+        nlp = spacy.load(spacy_en_dir)
+        df = self._base.get_all_text()
+        print("tokenizing into nouns")
+        tqdm.pandas()
+        df["noun_tokens"] = df.sentence.progress_apply(lambda text: ReviewApp._noun_tokenize(text, nlp))
+        print("building distances")
+        distances = ReviewApp._word_neighbors(df, 1).assign(weight=2).append(
+            ReviewApp._word_neighbors(df, 1).assign(weight=1))
+        distances = distances.groupby(['w0', 'w1']).weight.sum().reset_index()
+        return distances
+
+    def _build_gof(self, spacy_en_dir="en"):
+        data_graph_of_words = self._compute_distances(spacy_en_dir)
+        print("building graph")
+        graph_of_words = nx.from_pandas_edgelist(data_graph_of_words, source='w0', target='w1', edge_attr='weight',
+                                                 create_using=nx.Graph())
+        return graph_of_words
