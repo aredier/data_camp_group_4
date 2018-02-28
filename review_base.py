@@ -1,17 +1,16 @@
 import sqlite3
-
-from datetime import date
+from datetime import date, datetime
 
 import arrow
-
 import pandas as pd
-
+from scrapy.crawler import CrawlerProcess
 from sqlalchemy import create_engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
 from tqdm import tqdm
 
-from models import Base, Sentences, Reviews
+from .scrapy_scrapers.scrapy_scrapers.spiders.best_buy_spider import BestBuySpider
+from .models import Base, Sentences, Reviews
 
 
 class ReviewBase:
@@ -23,10 +22,10 @@ class ReviewBase:
         assert type(path_to_base) is str, "path must be string"
         self._path = path_to_base
 
-        self._engine = create_engine("sqlite:///" + path_to_database, echo=False)
+        self._engine = create_engine("sqlite:///" + self._path, echo=False)
         self._session_maker = sessionmaker(bind=self._engine)
 
-        self._conn = sqlite3.connect(self.path)
+        self._conn = sqlite3.connect(self._path)
 
     def _add_issue(self, label):
         """adds an issue colum to the issues table """
@@ -39,10 +38,10 @@ class ReviewBase:
     ### BUILDING AND UPDATING THE DATABASE
     #
     #
-    def _insert_unlabeled(self, row, insert_date):
+    @staticmethod
+    def _insert_unlabeled(session, row, insert_date):
         """inserts an issue from the unlabled dataframe"""
 
-        session = self._session_maker()
 
         review = Reviews(date_time=insert_date)
         session.add(review)
@@ -51,9 +50,9 @@ class ReviewBase:
         session.add(sentence)
         session.commit()
 
-    def _insert_labeled(self, row, IssueClass, insert_date):
+    @staticmethod
+    def _insert_labeled( session, row, IssueClass, insert_date):
         """ inserts an issue from the labeled datafrmae in the database"""
-        session = self._session_maker()
 
         review = Reviews(date_time=insert_date)
         session.add(review)
@@ -77,40 +76,39 @@ class ReviewBase:
         insert_date = date(2018, 1, 1)
 
         if labeled:
+            session = self._session_maker()
             print("importing labeled data")
             labeled = pd.read_csv(labeled)
             for label in labeled:
                 if label == "text":
                     continue
                 self._add_issue(label)
-            session = self._session_maker()
             Base2 = automap_base()
             Base2.prepare(self._engine, reflect=True)
             Issue = Base2.classes.issues
-            labeled.progress_apply(lambda row: self._insert_labeled(row, Issue, insert_date), axis=1)
+            labeled.progress_apply(lambda row: self._insert_labeled(session, row, Issue, insert_date), axis=1)
             session.close()
 
         if unlabeled:
             print("importing unalabeled data")
+            session = self._session_maker()
             unlabeled = pd.read_csv(unlabeled)
+            unlabeled.progress_apply(lambda row: self._insert_unlabeled(session, row, insert_date), axis=1)
+
+    def update(self, update_date=None):
+
+        if not update_date:
             session = self._session_maker()
-            unlabeled.progress_apply(lambda row: self._insert_unlabeled(row, insert_date), axis=1)
-
-    def update(self, date=None):
-        if not date:
-
-            session = self._session_maker()
-
-            date = session.query(Reviews).distinct(Reviews.date_time).order_by(Reviews.date_time.desc()).first()
-            if not date:
-                date = datetime(2017, 1, 1).replace(tzinfo=None)
+            update_date = session.query(Reviews).distinct(Reviews.date_time).order_by(Reviews.date_time.desc()).first()
+            if not update_date:
+                update_date = datetime(2017, 1, 1).replace(tzinfo=None)
             else:
-                date = date.date_time.replace(tzinfo=None)
+                update_date = update_date.date_time.replace(tzinfo=None)
 
         process = CrawlerProcess({
             'USER_AGENT': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:57.0) Gecko/20100101 Firefox/57.0',
             "path": self._path,
-            "date_time": date,
+            "date_time": update_date,
             "LOG_LEVEL": "INFO",
             "ITEM_PIPELINES": {
                 'group_4_backend.data.scrapy_scrapers.scrapy_scrapers.pipelines.ScrapyScrapersPipeline': 300,
@@ -119,7 +117,6 @@ class ReviewBase:
             "CONCURRENT_REQUESTS": 32,
             "CONCURRENT_REQUESTS_PER_DOMAIN ": 32,
             "AUTOTHROTTLE_ENABLED": False,
-            "LOG_LEVEL": "INFO"
         })
 
         process.crawl(BestBuySpider)
@@ -133,14 +130,14 @@ class ReviewBase:
             print("\nSCRAPPING NEW DATA")
             self.update()
 
-    #SQL ABSTRACTIONS
+    # SQL ABSTRACTIONS
     #
     #
     def _run_sql(self, query_str):
 
         return pd.read_sql_query(query_str, self._conn)
 
-    def get_train(self)
+    def get_train(self):
 
         query_str = """
         SELECT r.date_time, r.id as review_id, s.sentence, i.*
