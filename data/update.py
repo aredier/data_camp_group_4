@@ -1,14 +1,13 @@
 """" class that handeles the updates of the database"""
-from scrapy.crawler import CrawlerProcess
-from .scrapy_scrapers.scrapy_scrapers.spiders.best_buy_spider import BestBuySpider
-
-from sqlalchemy import  create_engine
-from sqlalchemy.orm import sessionmaker
-
 from datetime import datetime
 
+from scrapy.crawler import CrawlerProcess
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-from .models import Reviews
+from models import Reviews
+from .scrapy_scrapers.scrapy_scrapers.spiders.best_buy_spider import BestBuySpider
+
 
 def update(path_to_base, date=None):
     if not date:

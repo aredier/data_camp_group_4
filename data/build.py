@@ -1,17 +1,13 @@
-import pandas as pd
-
 import sqlite3
-
-from tqdm import tqdm
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.automap import automap_base
-
 from datetime import date
 
-from .models import Base, Sentences, Reviews
+import pandas as pd
+from sqlalchemy import create_engine
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import sessionmaker
+from tqdm import tqdm
 
+from models import Base, Sentences, Reviews
 
 SQLITE_REL_PATH = 'data/review_data.db'
 

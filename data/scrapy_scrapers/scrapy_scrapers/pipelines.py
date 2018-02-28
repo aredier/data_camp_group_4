@@ -5,12 +5,11 @@
 # Don't forget to add your pipeline to the ITEM_PIPELINES setting
 # See: https://doc.scrapy.org/en/latest/topics/item-pipeline.html
 
+from nltk import sent_tokenize
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from nltk import sent_tokenize
-
-from ...models import Sentences, Sources, Models, Reviews
+from models import Sentences, Sources, Models, Reviews
 from .items import Review, Source, Model
 from .settings import SQLITE_REL_PATH
 
