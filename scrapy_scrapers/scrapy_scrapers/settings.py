@@ -16,6 +16,8 @@ SQLITE_REL_PATH = "data/review_data.db"
 SPIDER_MODULES = ['scrapy_scrapers.spiders']
 NEWSPIDER_MODULE = 'scrapy_scrapers.spiders'
 
+LOG_LEVEL = "INFO"
+
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'scrapy_scrapers (+http://www.yourdomain.com)'

@@ -1,5 +1,9 @@
 import re
 
+import itertools
+
+from datetime import datetime
+
 from nltk import TweetTokenizer
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
@@ -10,8 +14,6 @@ from sklearn.metrics import classification_report
 
 
 from xgboost import XGBClassifier
-
-import itertools
 
 import pandas as pd
 
@@ -35,6 +37,9 @@ class ReviewApp:
     def build_data_base(self, labeled=None, unlabeled=None):
 
         self._base.build_and_update(labeled=labeled, unlabeled=unlabeled)
+    def update_data_base(self):
+
+        self._base.update()
 
     # PREPROCESSING
     # text
@@ -55,9 +60,9 @@ class ReviewApp:
         tokens = tkzer.tokenize(review)
         # removing stop words
         english_stopwords = set(stopwords.words("english"))
-        non_stopwords = set(["not", "same", "too", "doesn't", "don't", 'doesn', "didn't", 'didn', "hasn't",
+        non_stopwords = {"not", "same", "too", "doesn't", "don't", 'doesn', "didn't", 'didn', "hasn't",
                              'hasn', "aren't", 'aren', "isn't", 'isn', "shouldn't", 'shouldn', 'wasn', "wasn't",
-                             'weren', "weren't", 'won', "won't"])
+                             'weren', "weren't", 'won', "won't"}
         english_stopwords = set([word for word in english_stopwords if word not in non_stopwords])
         tokens = [token for token in tokens if token not in english_stopwords]
         # lematizing the tokens
@@ -216,6 +221,15 @@ class ReviewApp:
         assert self._model is not None, "model must be fitted or loaded before predictions are possible"
         data = self._base.get_not_predicted()
         x = self.bow_preprocessing(data)
+        print("- performing predictions")
         y = self._model.predict(x)
-        result_df = pd.DataFrame(np.array(data["id"], y).T, columns=["sentence_id", "issue"])
-        return result_df
+        result_df = pd.DataFrame(np.array([data["id"], y]).T, columns=["sentence_id", "issue"])
+        print("updating data base")
+        self._base.update_predictions(result_df)
+
+    def find_issues(self, start_date=datetime(2018,1,1), end_date=None):
+
+        data = self._base.select_detected_issue_from_date(start_date, end_date)
+        return data.loc[:,["date_time", "sentence"]]
+
+

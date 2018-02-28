@@ -13,12 +13,11 @@ from sqlalchemy.orm import sessionmaker
 from tqdm import tqdm
 
 from .scrapy_scrapers.scrapy_scrapers.spiders.best_buy_spider import BestBuySpider
-from .models import Base, Sentences, Reviews
+from .models import Base, Sentences, Reviews, Issues
 
 
 class ReviewBase:
     """abstraction of the review database"""
-
 
     def __init__(self, path_to_base):
 
@@ -38,13 +37,12 @@ class ReviewBase:
         except sqlite3.OperationalError:
             pass
 
-    ### BUILDING AND UPDATING THE DATABASE
+    # BUILDING AND UPDATING THE DATABASE
     #
     #
     @staticmethod
     def _insert_unlabeled(session, row, insert_date):
         """inserts an issue from the unlabled dataframe"""
-
 
         review = Reviews(date_time=insert_date)
         session.add(review)
@@ -54,7 +52,18 @@ class ReviewBase:
         session.commit()
 
     @staticmethod
-    def _insert_labeled( session, row, IssueClass, insert_date):
+    def _insert_prediction(session, IssueClass, row):
+        assert "sentence_id" in row.index, "issue must have a sentence id to be inserted"
+        check_query = session.query(Issues).filter(Issues.sentence_id == row["sentence_id"]).first()
+        assert check_query is None, "_insert_predictions is only used to insert new predictions pleas refer to ... for updates"
+        issue = IssueClass(predicted=True)
+        for issue_name in row.index:
+            setattr(issue, issue_name, int(row[issue_name]))
+        session.add(issue)
+        session.commit()
+
+    @staticmethod
+    def _insert_labeled(session, row, IssueClass, insert_date):
         """ inserts an issue from the labeled datafrmae in the database"""
 
         review = Reviews(date_time=insert_date)
@@ -133,6 +142,16 @@ class ReviewBase:
             print("\nSCRAPPING NEW DATA")
             self.update()
 
+    def update_predictions(self, predictions_df):
+        assert "sentence_id" in predictions_df.columns, "sentence id must be specified to update predictions"
+        tqdm.pandas()
+        session = self._session_maker()
+        Base2 = automap_base()
+        Base2.prepare(self._engine, reflect=True)
+        Issue = Base2.classes.issues
+        predictions_df.progress_apply(lambda row : self._insert_prediction(session, Issue, row), axis=1)
+        session.close()
+
     # SQL ABSTRACTIONS
     #
     #
@@ -164,8 +183,37 @@ class ReviewBase:
         ON i.sentence_id = s.id
         """
         data = self._run_sql(query_str)
-        data = data[pd.isna(data.iloc[:,2])]
+        data = data[pd.isna(data.iloc[:, 2])]
         return data.drop(["issue_id"], axis=1)
+
+    def select_detected_issue_from_date(self, start_date, end_date=None):
+        assert type(start_date) in [date, datetime, arrow], "start date must be a date or datetime object"
+        start_date = arrow.get(start_date)
+        query_str = """
+                    SELECT  r.date_time, s.sentence, i.*
+                    FROM sentences s
+                    INNER JOIN reviews r
+                    ON r.id = s.review_id
+                    LEFT JOIN issues i
+                    ON s.id = i.sentence_id
+                    WHERE i.issue = 1 AND predicted = 1
+                    """
+        if end_date is None:
+            query_str += """
+                    AND r.date_time > '{}'
+                    """.format(start_date.format("YYYY-MM-DD HH:mm:SS.000000"))
+            return self._run_sql(query_str)
+        else:
+            assert type(end_date) in [date, datetime, arrow], "end date must be a date or datetime object"
+            end_date = arrow.get(end_date)
+            query_str += """
+                    AND r.date_time > '{}' AND r.date_time < '{}'
+                    """.format(start_date.format("YYYY-MM-DD HH:mm:SS.000000"),
+                               end_date.format("YYYY-MM-DD HH:mm:SS.000000"))
+        query_str += """
+        ORDER BY r.date_time DESC
+        """
+        return self._run_sql(query_str).drop(["id", "predicted"], axis=1)
 
     def select_from_date(self, start_date, end_date=None):
 
@@ -178,7 +226,7 @@ class ReviewBase:
             ON r.id = s.review_id
             LEFT JOIN issues i
             ON s.id = i.sentence_id"""
-        if not end_date:
+        if end_date is not None:
             query_str += """
             WHERE r.date_time > '{}'
             """.format(start_date.format("YYYY-MM-DD HH:mm:SS.000000"))
