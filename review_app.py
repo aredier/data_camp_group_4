@@ -1,16 +1,17 @@
+import re
+
 from nltk import TweetTokenizer
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.metrics import classification_report
+
 
 from xgboost import XGBClassifier
 
 import itertools
-
-from textblob import TextBlob
 
 import pandas as pd
 
@@ -166,12 +167,21 @@ class ReviewApp:
         print("training model")
         if model == "xgb":
             if do_cv:
-                pass
+                print("performing greid search cross validation")
+                cv_params = {
+                    "max_depth": [100, 250, 500],
+                    "n_estimators": [100, 500, 1000],
+                    "gamma": [0.01, 0.001, 0.0001]
+                }
+                self._model = XGBClassifier()
+                gs = RandomizedSearchCV(model, cv_params, n_jobs=-1, scoring="f1", verbose=3)
+                gs.fit(x_train, y_train)
+                self._model_params = gs.best_params_
 
             if self._model_params is None:
                 self._model_params = {'gamma': 0.0001, 'max_depth': 250, 'n_estimators': 500}
 
-            self._model = XGBClassifier(self._model_params)
+            self._model = XGBClassifier(**self._model_params)
             self._model.fit(x_train, y_train)
 
         if do_test_analysis:
