@@ -5,11 +5,15 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.model_selection import train_test_split, RandomizedSearchCV, GridSearchCV
 from sklearn.metrics import classification_report
 
 
 from xgboost import XGBClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from math import sqrt
+
 
 import itertools
 
@@ -105,7 +109,7 @@ class ReviewApp:
 
         assert type(train) is pd.DataFrame, "train must be a dataframe"
 
-        # ddoing checks and building vocabulary
+        # doing checks and building vocabulary
         all_df = [train]
         if test is not None:
             assert type(test) is pd.DataFrame, "test must be a dataframe"
@@ -173,7 +177,7 @@ class ReviewApp:
     #
     def train_model(self, model="xgb", do_test_analysis=True, test_prop=0.33, do_cv=False):
         """trains the model"""
-        assert model in ["xgb"], "Only XGBoost suported so far"
+        assert model in ["xgb", "logreg", "rf"],
 
         print("doing preprocessing (tokenizing, lematizing, bow, ...)")
         print("- getting data")
@@ -187,9 +191,10 @@ class ReviewApp:
             y_train = y
 
         print("training model")
+        
         if model == "xgb":
             if do_cv:
-                print("performing greid search cross validation")
+                print("performing grid search cross validation")
                 cv_params = {
                     "max_depth": [100, 250, 500],
                     "n_estimators": [100, 500, 1000],
@@ -206,6 +211,47 @@ class ReviewApp:
             self._model = XGBClassifier(**self._model_params)
             self._model.fit(x_train, y_train)
 
+        if model == "rf":
+            if do_cv:
+                print("performing grid search cross validation")
+                p = x_train.shape[1]
+                cv_params = {
+                    "max_depth": [100, 250, 500],
+                    "n_estimators": [10, 100, 1000],
+                    "criterion": ["gini", "entropy"],
+                    "max_features": ["auto", round(sqrt(p))] # best theoretical subset size for classification
+                }
+                self._model = RandomForestClassifier()
+                gs = RandomizedSearchCV(model, cv_params, n_jobs=-1, scoring="f1", verbose=3)
+                gs.fit(x_train, y_train)
+                self._model_params = gs.best_params_
+
+            if self._model_params is None:
+                self._model_params = {'criterion': "gini",
+                                      'max_depth': 250,
+                                      'n_estimators': 10,
+                                      'max_features': "auto"
+                                      }
+            
+            self._model = RandomForestClassifier()(**self._model_params)
+            self._model.fit(x_train, y_train)
+        
+        if model == "logreg":
+            if do_cv:
+                print("performing cross validation")
+                cv_params = { "C": np.power(10.0, np.arange(-10, 10))}
+                self._model = LogisticRegression()
+                gs = GridSearchCV(model, cv_params, n_jobs=-1, scoring="f1", verbose=3)
+                gs.fit(x_train, y_train)
+                self._model_params = gs.best_params_
+
+        if self._model_params is None:
+            self._model_params = {'C': 1.0}
+
+        self._model = LogisticRegression()(**self._model_params)
+        self._model.fit(x_train, y_train)
+
+            
         if do_test_analysis:
             print("Performing test anlysis")
             y_pred = self._model.predict(x_test)
