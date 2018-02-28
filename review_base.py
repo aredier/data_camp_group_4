@@ -247,7 +247,7 @@ class ReviewBase:
         query_str = """
         SELECT s.sentence
         FROM sentences s
-        LIMIT 1000
+        LIMIT 10000
         """
 
         return self._run_sql(query_str)

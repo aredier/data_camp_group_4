@@ -18,11 +18,17 @@ import pandas as pd
 
 import numpy as np
 
+# to install networkx 2.0 compatible version of python-louvain use:
+# pip install -U git+https://github.com/taynaud/python-louvain.git@networkx2
+from community import community_louvain
+
 import networkx as nx
 
 import spacy
 
 from tqdm import tqdm
+
+from matplotlib import rcParams
 
 from .review_base import ReviewBase
 
@@ -278,3 +284,128 @@ class ReviewApp:
         graph_of_words = nx.from_pandas_edgelist(data_graph_of_words, source='w0', target='w1', edge_attr='weight',
                                                  create_using=nx.Graph())
         return graph_of_words
+
+    # graph clustering
+    # The code is taken from the link below
+    # https://stackoverflow.com/questions/43541376/how-to-draw-communities-with-networkx
+    @staticmethod
+    def _community_layout(g, partition):
+        """
+        Compute the layout for a modular graph.
+
+
+        Arguments:
+        ----------
+        g -- networkx.Graph or networkx.DiGraph instance
+            graph to plot
+
+        partition -- dict mapping int node -> int community
+            graph partitions
+
+
+        Returns:
+        --------
+        pos -- dict mapping int node -> (float x, float y)
+            node positions
+
+        """
+
+        pos_communities = ReviewApp._position_communities(g, partition, scale=3.)
+
+        pos_nodes = ReviewApp._position_nodes(g, partition, scale=1.)
+
+        # combine positions
+        pos = dict()
+        for node in g.nodes():
+            pos[node] = pos_communities[node] + pos_nodes[node]
+
+        return pos
+
+    @staticmethod
+    def _position_communities(g, partition, **kwargs):
+
+        # create a weighted graph, in which each node corresponds to a community,
+        # and each edge weight to the number of edges between communities
+        between_community_edges = ReviewApp._find_between_community_edges(g, partition)
+
+        communities = set(partition.values())
+        hypergraph = nx.DiGraph()
+        hypergraph.add_nodes_from(communities)
+        for (ci, cj), edges in between_community_edges.items():
+            hypergraph.add_edge(ci, cj, weight=len(edges))
+
+        # find layout for communities
+        pos_communities = nx.spring_layout(hypergraph, **kwargs)
+
+        # set node positions to position of community
+        pos = dict()
+        for node, community in partition.items():
+            pos[node] = pos_communities[community]
+
+        return pos
+
+    @staticmethod
+    def _find_between_community_edges(g, partition):
+
+        edges = dict()
+
+        for (ni, nj) in g.edges():
+            ci = partition[ni]
+            cj = partition[nj]
+
+            if ci != cj:
+                try:
+                    edges[(ci, cj)] += [(ni, nj)]
+                except KeyError:
+                    edges[(ci, cj)] = [(ni, nj)]
+
+        return edges
+
+    def _position_nodes(g, partition, **kwargs):
+        """
+        Positions nodes within communities.
+        """
+
+        communities = dict()
+        for node, community in partition.items():
+            try:
+                communities[community] += [node]
+            except KeyError:
+                communities[community] = [node]
+
+        pos = dict()
+        for ci, nodes in communities.items():
+            subgraph = g.subgraph(nodes)
+            pos_subgraph = nx.spring_layout(subgraph, **kwargs)
+            pos.update(pos_subgraph)
+
+        return pos
+
+    @staticmethod
+    def _get_partition_resume(graph, partition, n_words=4):
+
+        partition_df = pd.DataFrame.from_dict(partition, orient="index").rename(columns={0: 'group'})
+        n_words = min(n_words, min(partition_df["group"].value_counts().values))
+        groups_df = pd.DataFrame(columns=set(partition_df["group"]), index=list(range(1, n_words + 1)))
+        for group in set(partition_df["group"]):
+            subgraph = graph.subgraph(partition_df[partition_df["group"] == group].index.values)
+            groups_df[group] = pd.DataFrame.from_dict([nx.pagerank(G=subgraph, alpha=0.99)]).T.rename(
+                columns={0: 'pagerank'}) \
+                                   .sort_values("pagerank", ascending=False).index.values[:n_words]
+        return groups_df
+
+    def do_gof_anlysis(self, key_word="issue", draw=True, space_en_dir="en"):
+
+        graph_of_words = self._build_gof(spacy_en_dir=space_en_dir)
+        G = nx.ego_graph(G=graph_of_words, radius=1, n=key_word)
+        print("building partition")
+        partition = community_louvain.best_partition(G)
+        if draw:
+            pos = ReviewApp._community_layout(g=G, partition=partition)
+            rcParams['figure.figsize'] = (40, 40)
+            nx.draw(G, pos, node_color=list([partition[key] for key in list(G.nodes)]),
+                    labels=dict((n, n) for n, d in G.nodes(data=True)), font_color='black', font_size=8, font_weight='bold',
+                    edge_color='lightgray')
+
+        print(self._get_partition_resume(graph_of_words, partition, 6))
+
