@@ -1,9 +1,12 @@
 import sqlite3
-from datetime import date, datetime
 
+from datetime import date, datetime
 import arrow
+
 import pandas as pd
+
 from scrapy.crawler import CrawlerProcess
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
@@ -153,16 +156,16 @@ class ReviewBase:
     def get_not_predicted(self):
 
         query_str = """
-        SELECT r.date_time, s.review_pos, r.id, s.sentence 
+        SELECT s.id, s.sentence, i.id as issue_id
         FROM sentences s
         INNER JOIN reviews r
         ON s.review_id = r.id
-        WHERE NOT EXISTS(
-            SELECT i.id 
-            FROM issues i 
-            WHERE i.sentence_id = s.id)
+        LEFT JOIN issues i 
+        ON i.sentence_id = s.id
         """
-        return self._run_sql(query_str)
+        data = self._run_sql(query_str)
+        data = data[pd.isna(data.iloc[:,2])]
+        return data.drop(["issue_id"], axis=1)
 
     def select_from_date(self, start_date, end_date=None):
 
