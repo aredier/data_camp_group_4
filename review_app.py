@@ -245,11 +245,11 @@ class ReviewApp:
                 gs.fit(x_train, y_train)
                 self._model_params = gs.best_params_
 
-        if self._model_params is None:
-            self._model_params = {'C': 1.0}
+            if self._model_params is None:
+                self._model_params = {'C': 1.0}
 
-        self._model = LogisticRegression()(**self._model_params)
-        self._model.fit(x_train, y_train)
+            self._model = LogisticRegression()(**self._model_params)
+            self._model.fit(x_train, y_train)
 
             
         if do_test_analysis:
