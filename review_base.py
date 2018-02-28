@@ -111,7 +111,7 @@ class ReviewBase:
             "date_time": update_date,
             "LOG_LEVEL": "INFO",
             "ITEM_PIPELINES": {
-                'group_4_backend.data.scrapy_scrapers.scrapy_scrapers.pipelines.ScrapyScrapersPipeline': 300,
+                'group_4_backend.scrapy_scrapers.scrapy_scrapers.pipelines.ScrapyScrapersPipeline': 300,
             },
             "ROBOTSTXT_OBEY": False,
             "CONCURRENT_REQUESTS": 32,
@@ -140,7 +140,7 @@ class ReviewBase:
     def get_train(self):
 
         query_str = """
-        SELECT r.date_time, r.id as review_id, s.sentence, i.*
+        SELECT r.date_time, s.sentence, i.*
         FROM sentences s
         INNER JOIN reviews r 
         ON s.review_id = r.id

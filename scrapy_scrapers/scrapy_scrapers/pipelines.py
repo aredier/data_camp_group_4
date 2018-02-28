@@ -9,7 +9,7 @@ from nltk import sent_tokenize
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from models import Sentences, Sources, Models, Reviews
+from ...models import Sentences, Sources, Models, Reviews
 from .items import Review, Source, Model
 from .settings import SQLITE_REL_PATH
 

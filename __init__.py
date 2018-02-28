@@ -11,3 +11,4 @@ authors :
 """
 
 from .review_base import ReviewBase
+from .review_app import ReviewApp
