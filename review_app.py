@@ -41,9 +41,11 @@ class ReviewApp:
         if not review:
             return
         # cleaning the review
-        replacement_dic = {x: " " for x in ["@", "#", "/", "\n", "\r", "\r", "\b", "\t", "\f", "|"]}
-        review = review.translate(str.maketrans(replacement_dic))
-        review = " ".join(TextBlob(review.lower()).words)
+        review = str(review)
+        review = review.lower()
+        review = review.strip(' \t\n\r')
+        review = re.sub("[@#$!$&%^&*()_+|~=`{}\\:;<>?,.\/]", " ", review)
+
         # tokenizing
         tkzer = TweetTokenizer(preserve_case=False, reduce_len=True)
         tokens = tkzer.tokenize(review)
