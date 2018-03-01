@@ -84,9 +84,9 @@ class ReviewApp:
         return tokens
 
     @staticmethod
-    def _noun_tokenize(sentence, nlp, noun_count=3):
+    def _graph_tokenize(sentence, nlp, noun_count=5):
 
-        noun_tokens = [w.lemma_ for w in nlp(sentence.lower()) if w.pos_ == 'NOUN']
+        noun_tokens = [w.lemma_ for w in nlp(sentence.lower()) if( w.pos_ == 'NOUN' or w.pos_ == "ADJ")]
         if len(noun_tokens) < noun_count:
             return
         english_stopwords = set(stopwords.words("english"))
@@ -204,7 +204,7 @@ class ReviewApp:
     #
     def train_model(self, model="xgb", do_test_analysis=True, test_prop=0.33, do_cv=False):
         """trains the model"""
-        assert model in ["xgb", "logreg", "rf"],
+        assert model in ["xgb", "logreg", "rf"], "only XGBoost, logistic regression and random forest suported"
 
         print("doing preprocessing (tokenizing, lematizing, bow, ...)")
         print("- getting data")
@@ -260,7 +260,7 @@ class ReviewApp:
                                       'max_features': "auto"
                                       }
             
-            self._model = RandomForestClassifier()(**self._model_params)
+            self._model = RandomForestClassifier(**self._model_params)
             self._model.fit(x_train, y_train)
         
         if model == "logreg":
@@ -275,7 +275,7 @@ class ReviewApp:
             if self._model_params is None:
                 self._model_params = {'C': 1.0}
 
-            self._model = LogisticRegression()(**self._model_params)
+            self._model = LogisticRegression(**self._model_params)
             self._model.fit(x_train, y_train)
 
             
@@ -283,6 +283,12 @@ class ReviewApp:
             print("Performing test anlysis")
             y_pred = self._model.predict(x_test)
             print(classification_report(y_test, y_pred))
+
+    def retrain(self, keep_params=False, *args, **kargs):
+
+        if not keep_params:
+            self._model_params = None
+        self.train_model(*args, **kargs)
 
     def update_predictions(self):
         """updates the predictions in the data base"""
@@ -315,9 +321,9 @@ class ReviewApp:
     def _compute_distances(self, spacy_en_dir="en"):
         nlp = spacy.load(spacy_en_dir)
         df = self._base.get_all_text()
-        print("tokenizing into nouns")
+        print("tokenizing")
         tqdm.pandas()
-        df["noun_tokens"] = df.sentence.progress_apply(lambda text: ReviewApp._noun_tokenize(text, nlp))
+        df["noun_tokens"] = df.sentence.progress_apply(lambda text: ReviewApp._graph_tokenize(text, nlp))
         print("building distances")
         distances = ReviewApp._word_neighbors(df, 1).assign(weight=2).append(
             ReviewApp._word_neighbors(df, 1).assign(weight=1))
@@ -356,7 +362,7 @@ class ReviewApp:
 
         """
 
-        pos_communities = ReviewApp._position_communities(g, partition, scale=3.)
+        pos_communities = ReviewApp._position_communities(g, partition, scale=5.)
 
         pos_nodes = ReviewApp._position_nodes(g, partition, scale=1.)
 
@@ -450,8 +456,10 @@ class ReviewApp:
             pos = ReviewApp._community_layout(g=G, partition=partition)
             rcParams['figure.figsize'] = (40, 40)
             nx.draw(G, pos, node_color=list([partition[key] for key in list(G.nodes)]),
-                    labels=dict((n, n) for n, d in G.nodes(data=True)), font_color='black', font_size=8, font_weight='bold',
-                    edge_color='lightgray')
+                    labels=dict((n, n) for n, d in G.nodes(data=True)), font_color='black', font_size=6, font_weight='bold',
+                    edge_color='lightgray', node_size=35)
 
         print(self._get_partition_resume(graph_of_words, partition, 6))
+
+        return G, partition
 
