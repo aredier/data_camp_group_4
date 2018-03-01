@@ -43,6 +43,7 @@ class ReviewApp:
         """
         initialisation of the app
 
+
          Arguments:
         ----------
         path_to_base -- str : location of existing database or desired one
@@ -85,6 +86,22 @@ class ReviewApp:
     #
     @staticmethod
     def _tokenize_lematize(review, lematize=True):
+        """
+        tokenize and lematize a sentence into words with stop words removal
+
+
+        Arguments:
+        ----------
+        review -- str : sentence to be tokenized
+        lematize -- bool : wether to lematize or not
+
+        Returns:
+        ----------
+        tokens -- list : tokens
+        """
+
+        assert type(review) is str, "can only tokenize strings"
+        assert type(lematize) is bool, "lematize must be boolean"
         if not review:
             return
         # cleaning the review
@@ -111,6 +128,20 @@ class ReviewApp:
 
     @staticmethod
     def _graph_tokenize(sentence, nlp, noun_count=5):
+        """
+        tokenizing sentences into words for graph of words (keeping only nouns and adjectives).
+
+
+        Arguments:
+        ----------
+        sentence -- str : sentence to be tokenized
+        nlp -- spacy : spacy en environment
+        noun_count -- int : min number of entities per sentence
+
+        Returns:
+       ----------
+        noun_tokens -- list : tokens
+        """
 
         noun_tokens = [w.lemma_ for w in nlp(sentence.lower()) if( w.pos_ == 'NOUN' or w.pos_ == "ADJ")]
         if len(noun_tokens) < noun_count:
@@ -125,6 +156,19 @@ class ReviewApp:
 
     @staticmethod
     def _tokenize_df(df, target="sentence"):
+        """
+        tokenizing the columb tartget of a data frame with progress bar
+
+
+        Arguments:
+        ----------
+        df -- pd.DataFrame : data frame in which to pick the column to be tokenized
+        target -- str : target column in the data frame
+
+        Returns:
+        ----------
+        df -- pd.DataFrame : mutated data frame with the column 'tokenized_text' added (or replaced)
+        """
         tqdm.pandas()
         assert type(target) is str, "target must be a string"
         assert target in df.columns, "dataframe must have a {} column (user specified) to tokenize".format(target)
@@ -132,9 +176,19 @@ class ReviewApp:
         return df
 
     def _build_vocab(self, *data_frames, preprocess=False):
-        """function that builds a vocabulary from various data_frames
-        data_frames is a list of pd.DataFrame that must have a column tokenized_text if preprocess is False and
-        sentence otherwise
+        """
+        function that builds a vocabulary from various data_frames
+
+
+        Arguments:
+        ----------
+        data_frames -- list : list of pd.DataFrame that must have a column tokenized_text
+        if preprocess is False and sentence otherwise
+        preprocesss -- bool : wether to preprocess the data frames or not
+
+        Returns:
+        ----------
+        _vocab -- dict : the build vocabulary of the app (which is also set as app atribute)
         """
         if self._vocab is not None:
             return self._vocab
@@ -356,6 +410,7 @@ class ReviewApp:
         """
         retrains the inner model of the app
 
+
         Arguments:
         ----------
         keep_params -- bool : wether to keep the parameters of the inner model
@@ -402,12 +457,38 @@ class ReviewApp:
     #
     @staticmethod
     def _word_neighbors(df, dist=2):
+        """
+        computes the neighbours for a data frame of tokens
+
+
+        Arguments:
+        ----------
+        df -- pd.DataFrame : data frame from which to build neighbours, must contain a column 'noun_tokens'
+        dist -- int : distance at which to word are considered to be neighbors
+
+        Returns:
+        ----------
+        new_df -- pd.DataFrame : data frame with to column ('w0' and 'w1') where to words in the same line are
+        neighbors
+        """
         assert "noun_tokens" in df.columns, "df must be tokenized before distances can be computed"
         return pd.concat([pd.DataFrame([clean_sentence[:-dist], clean_sentence[dist:]]).T for clean_sentence in
                           df.noun_tokens.tolist() if clean_sentence is not None]).rename(columns={0: 'w0', 1: 'w1'}) \
             .reset_index(drop=True)
 
     def _compute_distances(self, spacy_en_dir="en"):
+        """
+        builds the distances between words for graph construction
+
+
+        Arguments:
+        ----------
+        spacy_en_dir -- str : directory of the spacy english environment
+
+        Returns:
+        ----------
+        distances -- pd.DataFrame : data frame with the edge distance between each words
+        """
         nlp = spacy.load(spacy_en_dir)
         df = self._base.get_all_text()
         print("tokenizing")
@@ -420,6 +501,18 @@ class ReviewApp:
         return distances
 
     def _build_gof(self, spacy_en_dir="en"):
+        """
+        builds graph of words for the all the sentences in the data frame
+
+
+        Arguments:
+        ----------
+        spacy_en_dir -- str : path to spacy english model module
+
+        Returns:
+        ----------
+        graph_of_words -- nx.Graph : graph of words of all the sentences within the database
+        """
         data_graph_of_words = self._compute_distances(spacy_en_dir)
         print("building graph")
         graph_of_words = nx.from_pandas_edgelist(data_graph_of_words, source='w0', target='w1', edge_attr='weight',
@@ -464,6 +557,20 @@ class ReviewApp:
 
     @staticmethod
     def _position_communities(g, partition, **kwargs):
+        """
+        position the comunities in for clusterd graph
+
+
+        Arguments:
+        ----------
+        g -- nx.Graph : graph that is to be printed
+        partition -- dic : graph clustering to be applied
+        kwargs -- dict : additional layout named arguments
+
+        Returns:
+        ----------
+        pos -- dict : communities positions
+        """
 
         # create a weighted graph, in which each node corresponds to a community,
         # and each edge weight to the number of edges between communities
@@ -487,6 +594,19 @@ class ReviewApp:
 
     @staticmethod
     def _find_between_community_edges(g, partition):
+        """
+        finds edges between partions (communities) for clusterd graph
+
+
+         Arguments:
+        ----------
+        g -- nx.Graph : graph that is to be printed
+        partition -- dic : graph clustering to be applied
+
+        Arguments:
+        ----------
+        edges -- dict : between comunity edges
+        """
 
         edges = dict()
 
@@ -505,6 +625,15 @@ class ReviewApp:
     def _position_nodes(g, partition, **kwargs):
         """
         Positions nodes within communities.
+
+        Arguments:
+        ----------
+        g -- nx.Graph : graph that is to be printed
+        partition -- dic : graph clustering to be applied
+
+        Returns:
+        ----------
+        pos -- dict : within communities positions
         """
 
         communities = dict()
@@ -524,6 +653,19 @@ class ReviewApp:
 
     @staticmethod
     def _get_partition_resume(graph, partition, n_words=4):
+        """
+        gets the resume (most cental words) of a graph of word partition
+
+        Arguments:
+        ----------
+        graph -- nx.Graph : graph on which partition is applied
+        partition -- dict : partion to be analysed
+        n_words -- int : number of words to be kept in resume
+
+        Returns:
+        ----------
+        groups_df -- pd.DataFrame : resume data frame
+        """
 
         partition_df = pd.DataFrame.from_dict(partition, orient="index").rename(columns={0: 'group'})
         n_words = min(n_words, min(partition_df["group"].value_counts().values))
