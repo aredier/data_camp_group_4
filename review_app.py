@@ -38,7 +38,15 @@ from .review_base import ReviewBase
 
 
 class ReviewApp:
+    """backend app for phones defects alerts based on user reviews thorough out the web"""
     def __init__(self, path_to_base):
+        """
+        initialisation of the app
+
+         Arguments:
+        ----------
+        path_to_base -- str : location of existing database or desired one
+        """
 
         self._base = ReviewBase(path_to_base)
         self._model = None
@@ -46,12 +54,30 @@ class ReviewApp:
         self._vocab = None
 
     def build_data_base(self, labeled=None, unlabeled=None, log_file=None):
+        """
+        building app"s databse from provided csv's as well as new data scraped from the web
+
+
+         Arguments:
+        ----------
+        labeled -- str : path to csv must be formated into sentences with a column text and a column per issue type
+        unlabeled -- str : path to csv, must be formated into sentences
+        log_file -- str : path to scraper log file
+        """
 
         self._base.build_and_update(labeled=labeled, unlabeled=unlabeled, log_file=log_file)
 
-    def update_data_base(self):
+    def update_data_base(self, log_file):
+        """
+        update the app data base by running scrapers
 
-        self._base.update()
+
+         Arguments:
+        ----------
+        log_file -- str path to scraper log_file
+        """
+
+        self._base.update(log_file)
 
     # PREPROCESSING
     # text
@@ -129,10 +155,26 @@ class ReviewApp:
         self._vocab = vocab_dict
         return self._vocab
 
-    # supervised
+    # supervised preprocessing
     #
     #
     def tfidf_preprocessing(self, train, test=None, additional=None, ngram_range=(1, 3)):
+        """
+        performs tfidf preprocessing on the desired train and test dataframes
+
+
+         Arguments:
+        ----------
+        train -- pd.DataFrame : train data frame
+        test -- pd.DataFrame : test data frame
+        additional -- pd.DataFRame : additional data to use when building app vocab
+        ngram_range -- tuple : n_grames to be used for the tfidf vecorization
+
+        Returns:
+        ----------
+        x_train -- sparse matrix tfidf matrix of the train set
+        x_test -- sparse matrix if test is specified (tfidf matrix of the test set)
+        """
 
         assert type(train) is pd.DataFrame, "train must be a dataframe"
 
@@ -161,6 +203,22 @@ class ReviewApp:
             return x_train
 
     def bow_preprocessing(self, train, test=None, additional=None, ngram_range=(1, 3)):
+        """
+        performs bag of words (bow) preprocessing on the desired train and test dataframes
+
+
+        Arguments:
+        ----------
+        train -- pd.DataFrame : train data frame
+        test -- pd.DataFrame : test data frame
+        additional -- pd.DataFRame : additional data to use when building app vocab
+        ngram_range -- tuple : n_grames to be used for the tfidf vecorization
+
+        Returns:
+        ----------
+        x_train -- sparse matrix bow matrix of the train set
+        x_test -- sparse matrix if test is specified (bow matrix of the test set)
+        """
 
         assert type(train) is pd.DataFrame, "train must be a dataframe"
 
@@ -203,7 +261,17 @@ class ReviewApp:
     #
     #
     def train_model(self, model="xgb", do_test_analysis=True, test_prop=0.33, do_cv=False):
-        """trains the model"""
+        """
+        trains app's inner model
+
+
+        Arguments:
+        ----------
+        model -- str : model to be used (xgb, rf or logreg)
+        do_test_analysis -- bool : wether to do test analysis or not
+        test_prop -- float : test proportion to be used if do_test_analysis is true
+        do_cv -- bool : wether to perform cross_validation or not
+        """
         assert model in ["xgb", "logreg", "rf"], "only XGBoost, logistic regression and random forest suported"
 
         print("doing preprocessing (tokenizing, lematizing, bow, ...)")
@@ -285,13 +353,25 @@ class ReviewApp:
             print(classification_report(y_test, y_pred))
 
     def retrain(self, keep_params=False, *args, **kargs):
+        """
+        retrains the inner model of the app
+
+        Arguments:
+        ----------
+        keep_params -- bool : wether to keep the parameters of the inner model
+        args -- list : train_model positional arguments
+        kargs -- dict : train_model optional arguments
+        """
 
         if not keep_params:
             self._model_params = None
         self.train_model(*args, **kargs)
 
     def update_predictions(self):
-        """updates the predictions in the data base"""
+        """
+        updates the predictions in the data base
+        """
+
         assert self._model is not None, "model must be fitted or loaded before predictions are possible"
         data = self._base.get_not_predicted()
         x = self.bow_preprocessing(data)
@@ -302,6 +382,15 @@ class ReviewApp:
         self._base.update_predictions(result_df)
 
     def find_issues(self, start_date=datetime(2018, 1, 1), end_date=None):
+        """
+        find new issues predicted by the app
+
+
+        Arguments:
+        ----------
+        start_date -- datetime.date or datetime.datetime : date from which to find issues
+        end_date -- datetime.date or datetime.datetime : date at which to en search
+        """
 
         data = self._base.select_detected_issue_from_date(start_date, end_date)
         return data.loc[:, ["date_time", "sentence"]]
@@ -446,7 +535,24 @@ class ReviewApp:
                                    .sort_values("pagerank", ascending=False).index.values[:n_words]
         return groups_df
 
-    def do_gof_anlysis(self, key_word="issue", draw=True, space_en_dir="en"):
+    def do_gof_anlysis(self, key_word="issue", draw=True, out=False, space_en_dir="en"):
+        """
+        performs the graph of words analysis
+
+
+        Arguments:
+        ----------
+        key_word -- str : keyword to use to extract subgraph on which clustering is performed
+        draw -- bool : wether to draw subgraph with clusters or not
+        out -- bool : wether to output results or not
+        spacy_en_dir : sapcy english environement directory "en" should be sufficient if symlink is set
+                       otherwise specify package directory
+
+        Returns:
+        ----------
+        G -- networkix.Graph : subgraph on which the clustering is done
+        partition -- dict : clustering of the graph
+        """
 
         graph_of_words = self._build_gof(spacy_en_dir=space_en_dir)
         G = nx.ego_graph(G=graph_of_words, radius=1, n=key_word)
@@ -461,5 +567,6 @@ class ReviewApp:
 
         print(self._get_partition_resume(graph_of_words, partition, 6))
 
-        return G, partition
+        if out :
+            return G, partition
 
