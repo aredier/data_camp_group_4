@@ -17,7 +17,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from math import sqrt
 
-
 import pandas as pd
 
 import numpy as np
@@ -39,6 +38,7 @@ from .review_base import ReviewBase
 
 class ReviewApp:
     """backend app for phones defects alerts based on user reviews thorough out the web"""
+
     def __init__(self, path_to_base):
         """
         initialisation of the app
@@ -143,7 +143,7 @@ class ReviewApp:
         noun_tokens -- list : tokens
         """
 
-        noun_tokens = [w.lemma_ for w in nlp(sentence.lower()) if( w.pos_ == 'NOUN' or w.pos_ == "ADJ")]
+        noun_tokens = [w.lemma_ for w in nlp(sentence.lower()) if (w.pos_ == 'NOUN' or w.pos_ == "ADJ")]
         if len(noun_tokens) < noun_count:
             return
         english_stopwords = set(stopwords.words("english"))
@@ -314,7 +314,7 @@ class ReviewApp:
     # SUPERVISED TASKS
     #
     #
-    def _inner_train(self, x, y, model = "xgb", do_cv=False):
+    def _inner_train(self, x, y, model="xgb", do_cv=False):
         """
          does train on all the issues of the data for a specified model. Can perform cross validation for all the models
 
@@ -369,20 +369,20 @@ class ReviewApp:
                 else:
                     if col not in self._model_params.keys():
                         self._model_params[col] = {'criterion': "gini",
-                                              'max_depth': 250,
-                                              'n_estimators': 10,
-                                              'max_features': "auto"
-                                              }
+                                                   'max_depth': 250,
+                                                   'n_estimators': 10,
+                                                   'max_features': "auto"
+                                                   }
 
                     self._models[col] = RandomForestClassifier(**self._model_params[col])
-                    self._model[col].fit(x, y[col])
+                    self._models[col].fit(x, y[col])
 
         if model == "logreg":
-            print("- training on {}".format(col))
             for col in y.columns:
+                print("- training on {}".format(col))
                 if do_cv:
                     print("performing cross validation")
-                    cv_params = { "C": np.power(10.0, np.arange(-10, 10))}
+                    cv_params = {"C": np.power(10.0, np.arange(-10, 10))}
                     self._models[col] = LogisticRegression()
                     gs = GridSearchCV(model, cv_params, n_jobs=-1, scoring="f1", verbose=3)
                     gs.fit(x, y[col])
@@ -422,9 +422,9 @@ class ReviewApp:
             y_train = y
 
         print("training model")
-        
-        self._inner_train(x_train, y_train, do_cv=do_cv)
-            
+
+        self._inner_train(x_train, y_train, model, do_cv=do_cv)
+
         if do_test_analysis:
             print("Performing test anlysis")
             for col in y_test.columns:
@@ -449,18 +449,38 @@ class ReviewApp:
         self._models = dict()
         self.train_model(*args, **kargs)
 
+    def _predict(self, x):
+        """
+         performing predictions
+
+
+         Arguments:
+        ----------
+        x -- pd.Dataframe or np.array : bag of word of entry
+         """
+
+        x = pd.DataFrame(x)
+        res = pd.DataFrame()
+        for col in tqdm(self._models.keys()):
+            res = pd.concat([res, pd.DataFrame(self._models[col].predict(x), columns=[col])], axis=1)
+        return res
+
     def update_predictions(self):
         """
         updates the predictions in the data base
         """
 
-        assert self._model is not None, "model must be fitted or loaded before predictions are possible"
+        assert self._models != dict(), "model must be fitted or loaded before predictions are possible"
         data = self._base.get_not_predicted()
         x = self.bow_preprocessing(data)
         print("- performing predictions")
-        y = self._model.predict(x)
-        result_df = pd.DataFrame(np.array([data["id"], y]).T, columns=["sentence_id", "issue"])
-        print("updating data base")
+        y =  self._predict(x.todense())
+        y_val = y.values
+        ids = data["id"].values.reshape(-1,1)
+        if y_val.shape[0] != ids.shape[0]:
+            raise RuntimeError("internal error on binding results to sentence ids")
+        result_df = pd.DataFrame(np.concatenate((ids, y_val), axis=1), columns=["sentence_id", *y.columns])
+        print("- updating data base")
         self._base.update_predictions(result_df)
 
     def find_issues(self, start_date=datetime(2018, 1, 1), end_date=None):
@@ -731,11 +751,11 @@ class ReviewApp:
             pos = ReviewApp._community_layout(g=G, partition=partition)
             rcParams['figure.figsize'] = (40, 40)
             nx.draw(G, pos, node_color=list([partition[key] for key in list(G.nodes)]),
-                    labels=dict((n, n) for n, d in G.nodes(data=True)), font_color='black', font_size=6, font_weight='bold',
+                    labels=dict((n, n) for n, d in G.nodes(data=True)), font_color='black', font_size=6,
+                    font_weight='bold',
                     edge_color='lightgray', node_size=35)
 
         print(self._get_partition_resume(graph_of_words, partition, 6))
 
-        if out :
+        if out:
             return G, partition
-
