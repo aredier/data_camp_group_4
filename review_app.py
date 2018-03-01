@@ -50,8 +50,8 @@ class ReviewApp:
         """
 
         self._base = ReviewBase(path_to_base)
-        self._model = None
-        self._model_params = None
+        self._models = dict()
+        self._model_params = dict()
         self._vocab = None
 
     def build_data_base(self, labeled=None, unlabeled=None, log_file=None):
@@ -314,6 +314,87 @@ class ReviewApp:
     # SUPERVISED TASKS
     #
     #
+    def _inner_train(self, x, y, model = "xgb", do_cv=False):
+        """
+         does train on all the issues of the data for a specified model. Can perform cross validation for all the models
+
+
+         Arguments:
+        ----------
+        x -- pd.DataFrame or np.array : train input data
+        y -- pd.DataFrame : train output data
+        model -- str : model to be used ('xgb', 'rf', 'logreg')
+        do_cv -- bool : wether to perform cross validation
+         """
+
+        if model == "xgb":
+            for col in y.columns:
+                print("- training on {}".format(col))
+                if do_cv:
+                    print("performing grid search cross validation")
+                    cv_params = {
+                        "max_depth": [100, 250, 500],
+                        "n_estimators": [100, 500, 1000],
+                        "gamma": [0.01, 0.001, 0.0001]
+                    }
+                    self._models[col] = XGBClassifier()
+                    gs = RandomizedSearchCV(self._models[col], cv_params, n_jobs=-1, scoring="f1", verbose=3)
+                    gs.fit(x, y[col])
+                    self._model_params[col] = gs.best_params_
+                    self._models[col] = gs.best_estimator_
+
+                else:
+                    if col not in self._model_params.keys():
+                        self._model_params[col] = {'gamma': 0.0001, 'max_depth': 250, 'n_estimators': 500}
+                    self._models[col] = XGBClassifier(**self._model_params[col])
+                    self._models[col].fit(x, y[col])
+
+        if model == "rf":
+            for col in y.columns:
+                print("- training on {}".format(col))
+                if do_cv:
+                    print("performing grid search cross validation")
+                    p = x.shape[1]
+                    cv_params = {
+                        "max_depth": [100, 250, 500],
+                        "n_estimators": [10, 100, 1000],
+                        "criterion": ["gini", "entropy"],
+                        "max_features": ["auto", round(sqrt(p))]  # best theoretical subset size for classification
+                    }
+                    self._models[col] = RandomForestClassifier()
+                    gs = RandomizedSearchCV(self._models[col], cv_params, n_jobs=-1, scoring="f1", verbose=3)
+                    gs.fit(x, [col])
+                    self._model_params[col] = gs.best_params_
+                    self._models[col] = gs.best_estimator_
+                else:
+                    if col not in self._model_params.keys():
+                        self._model_params[col] = {'criterion': "gini",
+                                              'max_depth': 250,
+                                              'n_estimators': 10,
+                                              'max_features': "auto"
+                                              }
+
+                    self._models[col] = RandomForestClassifier(**self._model_params[col])
+                    self._model[col].fit(x, y[col])
+
+        if model == "logreg":
+            print("- training on {}".format(col))
+            for col in y.columns:
+                if do_cv:
+                    print("performing cross validation")
+                    cv_params = { "C": np.power(10.0, np.arange(-10, 10))}
+                    self._models[col] = LogisticRegression()
+                    gs = GridSearchCV(model, cv_params, n_jobs=-1, scoring="f1", verbose=3)
+                    gs.fit(x, y[col])
+                    self._model_params[col] = gs.best_params_
+                    self._models[col] = gs.best_estimator_
+                else:
+                    if col not in self._model_params.keys():
+                        self._model_params[col] = {'C': 1.0}
+
+                    self._models[col] = LogisticRegression(**self._model_params[col])
+                    self._models[col].fit(x, y[col])
+
     def train_model(self, model="xgb", do_test_analysis=True, test_prop=0.33, do_cv=False):
         """
         trains app's inner model
@@ -327,12 +408,13 @@ class ReviewApp:
         do_cv -- bool : wether to perform cross_validation or not
         """
         assert model in ["xgb", "logreg", "rf"], "only XGBoost, logistic regression and random forest suported"
+        assert self._models == dict(), "only use this method for first train, please use retrain for retraining models"
 
         print("doing preprocessing (tokenizing, lematizing, bow, ...)")
         print("- getting data")
-        data = self._base.get_train().drop(["sentence_id", "predicted", "id"], axis=1)
+        data = self._base.get_train().drop(["sentence_id", "date_time", "predicted", "id"], axis=1)
         x = self.bow_preprocessing(data, additional=self._base.get_all_text())
-        y = data["issue"]
+        y = data.drop(["sentence", "tokenized_text", "joined_tokenized"], axis=1)
         if do_test_analysis:
             x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=test_prop)
         else:
@@ -341,70 +423,14 @@ class ReviewApp:
 
         print("training model")
         
-        if model == "xgb":
-            if do_cv:
-                print("performing grid search cross validation")
-                cv_params = {
-                    "max_depth": [100, 250, 500],
-                    "n_estimators": [100, 500, 1000],
-                    "gamma": [0.01, 0.001, 0.0001]
-                }
-                self._model = XGBClassifier()
-                gs = RandomizedSearchCV(model, cv_params, n_jobs=-1, scoring="f1", verbose=3)
-                gs.fit(x_train, y_train)
-                self._model_params = gs.best_params_
-
-            if self._model_params is None:
-                self._model_params = {'gamma': 0.0001, 'max_depth': 250, 'n_estimators': 500}
-
-            self._model = XGBClassifier(**self._model_params)
-            self._model.fit(x_train, y_train)
-
-        if model == "rf":
-            if do_cv:
-                print("performing grid search cross validation")
-                p = x_train.shape[1]
-                cv_params = {
-                    "max_depth": [100, 250, 500],
-                    "n_estimators": [10, 100, 1000],
-                    "criterion": ["gini", "entropy"],
-                    "max_features": ["auto", round(sqrt(p))] # best theoretical subset size for classification
-                }
-                self._model = RandomForestClassifier()
-                gs = RandomizedSearchCV(model, cv_params, n_jobs=-1, scoring="f1", verbose=3)
-                gs.fit(x_train, y_train)
-                self._model_params = gs.best_params_
-
-            if self._model_params is None:
-                self._model_params = {'criterion': "gini",
-                                      'max_depth': 250,
-                                      'n_estimators': 10,
-                                      'max_features': "auto"
-                                      }
-            
-            self._model = RandomForestClassifier(**self._model_params)
-            self._model.fit(x_train, y_train)
-        
-        if model == "logreg":
-            if do_cv:
-                print("performing cross validation")
-                cv_params = { "C": np.power(10.0, np.arange(-10, 10))}
-                self._model = LogisticRegression()
-                gs = GridSearchCV(model, cv_params, n_jobs=-1, scoring="f1", verbose=3)
-                gs.fit(x_train, y_train)
-                self._model_params = gs.best_params_
-
-            if self._model_params is None:
-                self._model_params = {'C': 1.0}
-
-            self._model = LogisticRegression(**self._model_params)
-            self._model.fit(x_train, y_train)
-
+        self._inner_train(x_train, y_train, do_cv=do_cv)
             
         if do_test_analysis:
             print("Performing test anlysis")
-            y_pred = self._model.predict(x_test)
-            print(classification_report(y_test, y_pred))
+            for col in y_test.columns:
+                print("for {}".format(col))
+                y_pred = self._models[col].predict(x_test)
+                print(classification_report(y_test[col], y_pred))
 
     def retrain(self, keep_params=False, *args, **kargs):
         """
@@ -419,7 +445,8 @@ class ReviewApp:
         """
 
         if not keep_params:
-            self._model_params = None
+            self._model_params = dict()
+        self._models = dict()
         self.train_model(*args, **kargs)
 
     def update_predictions(self):
