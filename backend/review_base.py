@@ -29,6 +29,16 @@ class ReviewBase:
 
         self._conn = sqlite3.connect(self._path)
 
+    @property
+    def issue_categories(self):
+        query_str = """
+        SELECT * FROM issues
+        LIMIT 2
+        """
+
+        return self._run_sql(query_str).drop(["issue", "sentence_id", "predicted", "id"], axis=1).columns.tolist()
+
+
     def _add_issue(self, label):
         """adds an issue colum to the issues table """
 
@@ -187,7 +197,7 @@ class ReviewBase:
         """
         data = self._run_sql(query_str)
         data = data[pd.isna(data.iloc[:, 2])]
-        return data.drop(["issue_id"], axis=1).iloc[:1000,:]
+        return data.drop(["issue_id"], axis=1).iloc[:10000,:]
 
     def select_detected_issue_from_date(self, start_date, end_date=None):
         assert type(start_date) in [date, datetime, arrow], "start date must be a date or datetime object"
@@ -250,3 +260,33 @@ class ReviewBase:
         """
 
         return self._run_sql(query_str)
+
+    def get_issue_type_count(self, predicted=False):
+        query_str = """
+        SELECT *
+        FROM issues
+        """
+
+        df = self._run_sql(query_str)
+        if predicted:
+            return df.drop(["id", "sentence_id", "predicted", "issue"], axis=1).apply(sum, axis = 0).to_dict()
+        else:
+            return df.loc[df.predicted == 0].drop(["id", "sentence_id", "predicted", "issue"], axis=1).apply(sum, axis = 0).to_dict()
+
+    def get_phone_issue_count(self, labeled=False):
+        query_str = """
+        SELECT i.id, r.id, m.name, m.memory_size
+        FROM issues i
+        INNER JOIN sentences s 
+        ON i.sentence_id = s.id
+        INNER JOIN reviews r
+        ON s.review_id = r.id
+        INNER JOIN models m
+        ON r.model_id = m.id
+        WHERE i.issue != 0
+        """
+
+        df = self._run_sql(query_str)
+        df["full_model"] = df.apply(lambda row: " ".join([row["name"], str(row["memory_size"])]), axis=1)
+        return df.groupby("full_model").agg("count")["name"].to_dict()
+

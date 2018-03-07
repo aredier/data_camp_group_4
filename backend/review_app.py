@@ -54,6 +54,13 @@ class ReviewApp:
         self._model_params = dict()
         self._vocab = None
 
+    def issue_type_count(self, options):
+        return self._base.get_issue_type_count(options)
+
+    @property
+    def issue_categories(self):
+        return self._base.issue_categories
+
     def build_data_base(self, labeled=None, unlabeled=None, log_file=None):
         """
         building app"s databse from provided csv's as well as new data scraped from the web
@@ -175,7 +182,7 @@ class ReviewApp:
         df["tokenized_text"] = df[target].progress_apply(ReviewApp._tokenize_lematize)
         return df
 
-    def _build_vocab(self, *data_frames, preprocess=False):
+    def _build_vocab(self, preprocess=False):
         """
         function that builds a vocabulary from various data_frames
 
@@ -192,7 +199,7 @@ class ReviewApp:
         """
         if self._vocab is not None:
             return self._vocab
-        data_frames = list(data_frames)
+        data_frames = [self._base.get_all_text()]
         assert all([type(df) is pd.DataFrame for df in data_frames]), "all input data must be dataframes"
         if preprocess:
             tqdm.pandas()
@@ -233,14 +240,11 @@ class ReviewApp:
         assert type(train) is pd.DataFrame, "train must be a dataframe"
 
         # doing checks and building vocabulary
-        all_df = [train]
         if test is not None:
             assert type(test) is pd.DataFrame, "test must be a dataframe"
-            all_df.append(test)
         if additional is not None:
             assert type(additional) is pd.DataFrame, "additional data dataframe must be of type pd.DataFrame"
-            all_df.append(additional)
-        vocab_dict = self._build_vocab(*all_df, preprocess=True)
+        vocab_dict = self._build_vocab(preprocess=True)
 
         # building the joined_tokenized columns
         train["joined_tokenized"] = train["tokenized_text"].apply(lambda x: " ".join(x))
@@ -284,7 +288,7 @@ class ReviewApp:
         if additional is not None:
             assert type(additional) is pd.DataFrame, "additional data dataframe must be of type pd.DataFrame"
             all_df.append(additional)
-        vocab_dict = self._build_vocab(*all_df, preprocess=True)
+        vocab_dict = self._build_vocab( preprocess=True)
 
         # checking the data is preprocessed
         if "tokenized_text" not in train.columns:
@@ -395,7 +399,7 @@ class ReviewApp:
                     self._models[col] = LogisticRegression(**self._model_params[col])
                     self._models[col].fit(x, y[col])
 
-    def train_model(self, model="xgb", do_test_analysis=True, test_prop=0.33, do_cv=False):
+    def train_model(self, model="xgb", do_test_analysis=True, return_test_analysis=False, test_prop=0.33, do_cv=False):
         """
         trains app's inner model
 
@@ -407,7 +411,7 @@ class ReviewApp:
         test_prop -- float : test proportion to be used if do_test_analysis is true
         do_cv -- bool : wether to perform cross_validation or not
         """
-        assert model in ["xgb", "logreg", "rf"], "only XGBoost, logistic regression and random forest suported"
+        assert model in ["xgb", "logreg", "rf"], "only XGBoost, logistic regression and random forest suported, {} was provided".format(model)
         assert self._models == dict(), "only use this method for first train, please use retrain for retraining models"
 
         print("doing preprocessing (tokenizing, lematizing, bow, ...)")
@@ -430,7 +434,10 @@ class ReviewApp:
             for col in y_test.columns:
                 print("for {}".format(col))
                 y_pred = self._models[col].predict(x_test)
-                print(classification_report(y_test[col], y_pred))
+                if return_test_analysis:
+                    yield classification_report(y_test[col], y_pred)
+                else:
+                    print(classification_report(y_test[col], y_pred))
 
     def retrain(self, keep_params=False, *args, **kargs):
         """
@@ -472,16 +479,22 @@ class ReviewApp:
 
         assert self._models != dict(), "model must be fitted or loaded before predictions are possible"
         data = self._base.get_not_predicted()
-        x = self.bow_preprocessing(data)
-        print("- performing predictions")
-        y =  self._predict(x.todense())
-        y_val = y.values
-        ids = data["id"].values.reshape(-1,1)
-        if y_val.shape[0] != ids.shape[0]:
-            raise RuntimeError("internal error on binding results to sentence ids")
-        result_df = pd.DataFrame(np.concatenate((ids, y_val), axis=1), columns=["sentence_id", *y.columns])
-        print("- updating data base")
-        self._base.update_predictions(result_df)
+        i = 0
+        while data.shape[0] != 0:
+            print("UPDATING PREDICTIONS FOR CHUNK {}".format(i))
+            x = self.bow_preprocessing(data)
+            print("- performing predictions")
+            y =  self._predict(x.todense())
+            y_val = y.values
+            ids = data["id"].values.reshape(-1,1)
+            if y_val.shape[0] != ids.shape[0]:
+                raise RuntimeError("internal error on binding results to sentence ids")
+            result_df = pd.DataFrame(np.concatenate((ids, y_val), axis=1), columns=["sentence_id", *y.columns])
+            print("- updating data base")
+            self._base.update_predictions(result_df)
+
+            i += 1
+            data = self._base.get_not_predicted()
 
     def find_issues(self, start_date=datetime(2018, 1, 1), end_date=None):
         """
@@ -495,7 +508,7 @@ class ReviewApp:
         """
 
         data = self._base.select_detected_issue_from_date(start_date, end_date)
-        return data.loc[:, ["date_time", "sentence"]]
+        return data.drop(["predicted", "id", "sentence_id"], axis=1)
 
     # UNSUPERVISED TASKS
     # graph of words
