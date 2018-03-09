@@ -90,37 +90,6 @@ def compute_issue_phone_pie_chart():
     }
 
 
-def compute_reviews_over_time():
-    issue_df = backend.find_issues().drop(["issue", "sentence"], axis=1)
-    issues_grouped_by_date = issue_df.groupby(["date_time"]).agg(sum)
-    dates = issues_grouped_by_date.index.values.tolist()
-    data = {}
-    for date in dates:
-        total = 0
-        for col in ISSUE_NAMES:
-            value = int(issues_grouped_by_date.loc[date, col])
-            total += value
-            try:
-                data[col]["total"].append(total)
-                data[col]["value"].append(value)
-            except KeyError:
-                data[col] = {"total": [total], "value": [value]}
-
-    return go.Figure(data=[
-        go.Scatter(
-            x=dates,
-            y=data[col]["total"],
-            fill='tonexty',
-            mode="none",
-            name=col,
-            fillcolor=COLORS[i],
-            text=[str(i) for i in data[col]["value"]],
-            hoverinfo="text"
-        )
-        for i, col in enumerate(ISSUE_NAMES)
-    ])
-
-
 # LAYOUT
 #
 #
@@ -138,6 +107,8 @@ app.layout = html.Div([
                 value = "xgb"
             ),
             html.Button("train", id="train_button"),
+            html.Button("update predictions (beware, very long the first time)", id="update_predictions_button"),
+            html.P(id="update_error_message"),
             html.Div(id="train_resume")
         ],
         style = {"display" : "inline"}
@@ -152,14 +123,10 @@ app.layout = html.Div([
     ),
     dcc.Graph(id="issue_type_graph"),
     html.H1("test"),
-    dcc.Graph(
-        id="issue_phone_graph",
-        figure = compute_issue_phone_pie_chart()
-    ),
+    html.Div(id="issue_phone_graph"),
     html.H3("issue type detected over time"),
-    dcc.Graph(
-        id = "reviews_over_time",
-        figure = compute_reviews_over_time()
+    html.Div(
+        id = "reviews_over_time"
     ),
     html.P(id="change_issue_message",
            children="placeholder"),
@@ -174,6 +141,80 @@ app.layout = html.Div([
            ),
     html.Div(id ="new_issue_list"),
 ])
+
+@app.callback(
+    Output("update_error_message", "children"),
+    [
+        Input("update_predictions_button", "n_clicks")
+    ]
+)
+def update_predictions(clicks):
+    if clicks is None:
+        clicks = 0
+    if clicks > 0:
+        try:
+            print("test")
+            backend.update_predictions()
+            return
+        except AssertionError:
+            print("raised exception")
+            return "you can only update the predictions when the model is trained"
+
+@app.callback(
+    Output("issue_phone_graph", "children"),
+    [
+        Input("update_predictions_button", "n_clicks")
+    ]
+)
+def return_issue_per_phone_graph(bs):
+    if bs is None:
+        bs = 0
+    if backend.predicted and bs > 0:
+        return dcc.Graph(id="phone_issue_graph", figure=compute_issue_phone_pie_chart())
+
+    else:
+        return html.P("sorry, this component can only be loaded once the predictions have been updated")
+
+@app.callback(
+    Output("reviews_over_time", "children"),
+   [
+       Input("update_predictions_button", "n_clicks"),
+   ]
+)
+def compute_reviews_over_time(bs):
+    if bs is None:
+        bs = 0
+    if backend.predicted and bs > 0:
+        issue_df = backend.find_issues().drop(["issue", "sentence"], axis=1)
+        issues_grouped_by_date = issue_df.groupby(["date_time"]).agg(sum)
+        dates = issues_grouped_by_date.index.values.tolist()
+        data = {}
+        for date in dates:
+            total = 0
+            for col in ISSUE_NAMES:
+                value = int(issues_grouped_by_date.loc[date, col])
+                total += value
+                try:
+                    data[col]["total"].append(total)
+                    data[col]["value"].append(value)
+                except KeyError:
+                    data[col] = {"total": [total], "value": [value]}
+
+        return dcc.Graph(id = "reviews_over_time_graph", figure = go.Figure(data=[
+                        go.Scatter(
+                            x=dates,
+                            y=data[col]["total"],
+                            fill='tonexty',
+                            mode="none",
+                            name=col,
+                            fillcolor=COLORS[i],
+                            text=[str(i) for i in data[col]["value"]],
+                            hoverinfo="text"
+                        )
+                        for i, col in enumerate(ISSUE_NAMES)
+        ]))
+    else:
+        return html.P("sorry, this component can only be loaded once the predictions have been updated")
 
 @app.callback(
     Output("issue_type_graph", "figure"),
@@ -263,59 +304,62 @@ def get_new_issues(categories):
 def train_backend_and_return_resume(clicks, model):
     if clicks is None:
         clicks = 0
-    if clicks == 1:
-        return html.Table([
-            html.Tr([
-                html.Td("precision_0"),
-                html.Td("recall_0"),
-                html.Td("f1 score_0"),
-                html.Td("total number of 0"),
+    if clicks > 0:
+        try:
+            return html.Table([
+                html.Tr([
+                    html.Td("precision_0"),
+                    html.Td("recall_0"),
+                    html.Td("f1 score_0"),
+                    html.Td("total number of 0"),
 
-                html.Td("precision_1"),
-                html.Td("recall_1"),
-                html.Td("f1 score_1"),
-                html.Td("total number of 1")
-            ])] + [
-            html.Tr([
-                html.Td(i[0]),
-                html.Td(j[0]),
-                html.Td(k[0]),
-                html.Td(s[0]),
+                    html.Td("precision_1"),
+                    html.Td("recall_1"),
+                    html.Td("f1 score_1"),
+                    html.Td("total number of 1")
+                ])] + [
+                html.Tr([
+                    html.Td(name),
+                    html.Td(i[0]),
+                    html.Td(j[0]),
+                    html.Td(k[0]),
+                    html.Td(s[0]),
 
-                html.Td(i[1]),
-                html.Td(j[1]),
-                html.Td(k[1]),
-                html.Td(s[1])
+                    html.Td(i[1]),
+                    html.Td(j[1]),
+                    html.Td(k[1]),
+                    html.Td(s[1])
+                ])
+                for name, (i, j, k, s) in backend.train_model(model)
             ])
-            for i,j,k,s in backend.train_model(model)
-        ])
 
-    elif clicks > 1:
-        return html.Table([
-          html.Tr([
-              html.Td("precision_0"),
-              html.Td("recall_0"),
-              html.Td("f1 score_0"),
-              html.Td("total number of 0"),
+        except AssertionError:
+            return html.Table([
+              html.Tr([
+                  html.Td("precision_0"),
+                  html.Td("recall_0"),
+                  html.Td("f1 score_0"),
+                  html.Td("total number of 0"),
 
-              html.Td("precision_1"),
-              html.Td("recall_1"),
-              html.Td("f1 score_1"),
-              html.Td("total number of 1")
-          ])] + [
-          html.Tr([
-              html.Td(i[0]),
-              html.Td(j[0]),
-              html.Td(k[0]),
-              html.Td(s[0]),
+                  html.Td("precision_1"),
+                  html.Td("recall_1"),
+                  html.Td("f1 score_1"),
+                  html.Td("total number of 1")
+              ])] + [
+              html.Tr([
+                  html.Td(name),
+                  html.Td(i[0]),
+                  html.Td(j[0]),
+                  html.Td(k[0]),
+                  html.Td(s[0]),
 
-              html.Td(i[1]),
-              html.Td(j[1]),
-              html.Td(k[1]),
-              html.Td(s[1])
-          ])
-          for i, j, k, s in backend.train_model(model)
-            ])
+                  html.Td(i[1]),
+                  html.Td(j[1]),
+                  html.Td(k[1]),
+                  html.Td(s[1])
+              ])
+              for name, (i, j, k, s) in backend.retrain(model)
+                ])
 
 
 if __name__ == '__main__':

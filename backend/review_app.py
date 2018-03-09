@@ -53,6 +53,7 @@ class ReviewApp:
         self._models = dict()
         self._model_params = dict()
         self._vocab = None
+        self.predicted = self._base.get_not_predicted().shape[0] == 0
 
     def issue_type_count(self, options):
         return self._base.get_issue_type_count(options)
@@ -411,6 +412,7 @@ class ReviewApp:
         test_prop -- float : test proportion to be used if do_test_analysis is true
         do_cv -- bool : wether to perform cross_validation or not
         """
+
         assert model in ["xgb", "logreg", "rf"], "only XGBoost, logistic regression and random forest suported, {} was provided".format(model)
         assert self._models == dict(), "only use this method for first train, please use retrain for retraining models"
 
@@ -434,7 +436,7 @@ class ReviewApp:
             for col in y_test.columns:
                 print("for {}".format(col))
                 y_pred = self._models[col].predict(x_test)
-                yield precision_recall_fscore_support(y_test[col], y_pred)
+                yield col, precision_recall_fscore_support(y_test[col], y_pred)
 
     def retrain(self, keep_params=False, *args, **kargs):
         """
@@ -448,6 +450,7 @@ class ReviewApp:
         kargs -- dict : train_model optional arguments
         """
 
+        self.predicted = False
         if not keep_params:
             self._model_params = dict()
         self._models = dict()
@@ -475,6 +478,8 @@ class ReviewApp:
         updates the predictions in the data base
         """
 
+        self.predicted = True
+        print("got there")
         assert self._models != dict(), "model must be fitted or loaded before predictions are possible"
         data = self._base.get_not_predicted()
         i = 0
