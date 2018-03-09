@@ -10,7 +10,9 @@ from backend import ReviewApp
 app = dash.Dash()
 app.config['suppress_callback_exceptions']=True
 
-backend = ReviewApp("backend/data/test_predicted.db")
+backend = ReviewApp("data/test_predicted.db")
+#backend.build_data_base(unlabeled="data/data_unlabeled.csv", labeled="data/labeled_data.csv")
+#backend.update_data_base("data/scraper.log")
 backend._build_vocab(preprocess=True)
 
 
@@ -258,7 +260,7 @@ def get_new_issues(categories):
     ]
 )
 
-def train_backend_and_retrun_resume(clicks, model):
+def train_backend_and_return_resume(clicks, model):
     if clicks is None:
         clicks = 0
     if clicks == 1:
