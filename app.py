@@ -4,12 +4,14 @@ import dash_core_components as dcc
 import dash_html_components as html
 import plotly.graph_objs as go
 
-from .backend import ReviewApp
+from backend import ReviewApp
 
 app = dash.Dash()
-
-backend = ReviewApp("group_4_backend/data/test_predicted.db")
+backend = ReviewApp("data/test_predicted.db")
+#backend.build_data_base(unlabeled="data/data_unlabeled.csv", labeled="data/labeled_data.csv")
+#backend.update_data_base("data/scraper.log")
 backend._build_vocab(preprocess=True)
+
 
 def compute_issue_phone_pie_chart():
     issue_count = [(k,v) for k, v in backend._base.get_phone_issue_count(True).items()]
@@ -112,7 +114,7 @@ def get_new_issues(categories):
     ]
 )
 
-def train_backend_and_retrun_resume(clicks, model):
+def train_backend_and_return_resume(clicks, model):
     if clicks is None:
         clicks = 0
     if clicks == 1:

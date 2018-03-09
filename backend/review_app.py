@@ -85,7 +85,7 @@ class ReviewApp:
         log_file -- str path to scraper log_file
         """
 
-        self._base.update(log_file)
+        self._base.update(log_file=log_file)
 
     # PREPROCESSING
     # text
@@ -353,7 +353,7 @@ class ReviewApp:
                     self._models[col] = XGBClassifier(**self._model_params[col])
                     self._models[col].fit(x, y[col])
 
-        if model == "rf":
+        elif model == "rf":
             for col in y.columns:
                 print("- training on {}".format(col))
                 if do_cv:
@@ -381,7 +381,7 @@ class ReviewApp:
                     self._models[col] = RandomForestClassifier(**self._model_params[col])
                     self._models[col].fit(x, y[col])
 
-        if model == "logreg":
+        elif model == "logreg":
             for col in y.columns:
                 print("- training on {}".format(col))
                 if do_cv:

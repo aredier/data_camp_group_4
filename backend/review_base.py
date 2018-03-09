@@ -133,7 +133,7 @@ class ReviewBase:
             "path": self._path,
             "date_time": update_date,
             "ITEM_PIPELINES": {
-                'group_4_backend.scrapy_scrapers.scrapy_scrapers.pipelines.ScrapyScrapersPipeline': 300,
+                'backend.scrapy_scrapers.scrapy_scrapers.pipelines.ScrapyScrapersPipeline': 300,
             },
             "ROBOTSTXT_OBEY": False,
             "CONCURRENT_REQUESTS": 32,
