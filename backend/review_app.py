@@ -10,7 +10,7 @@ from nltk.stem import WordNetLemmatizer
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, GridSearchCV
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, precision_recall_fscore_support
 
 from xgboost import XGBClassifier
 from sklearn.linear_model import LogisticRegression
@@ -399,7 +399,7 @@ class ReviewApp:
                     self._models[col] = LogisticRegression(**self._model_params[col])
                     self._models[col].fit(x, y[col])
 
-    def train_model(self, model="xgb", do_test_analysis=True, return_test_analysis=False, test_prop=0.33, do_cv=False):
+    def train_model(self, model="xgb", do_test_analysis=True, test_prop=0.33, do_cv=False):
         """
         trains app's inner model
 
@@ -434,10 +434,7 @@ class ReviewApp:
             for col in y_test.columns:
                 print("for {}".format(col))
                 y_pred = self._models[col].predict(x_test)
-                if return_test_analysis:
-                    yield classification_report(y_test[col], y_pred)
-                else:
-                    print(classification_report(y_test[col], y_pred))
+                yield precision_recall_fscore_support(y_test[col], y_pred)
 
     def retrain(self, keep_params=False, *args, **kargs):
         """
@@ -454,7 +451,8 @@ class ReviewApp:
         if not keep_params:
             self._model_params = dict()
         self._models = dict()
-        self.train_model(*args, **kargs)
+        for i, j, k, s in self.train_model(*args, **kargs):
+            yield i,j, k, s
 
     def _predict(self, x):
         """
@@ -682,7 +680,7 @@ class ReviewApp:
 
         return edges
 
-    def _position_nodes(g, partition, **kwargs):
+    def _position_nodes(self, partition, **kwargs):
         """
         Positions nodes within communities.
 
@@ -705,7 +703,7 @@ class ReviewApp:
 
         pos = dict()
         for ci, nodes in communities.items():
-            subgraph = g.subgraph(nodes)
+            subgraph = self.subgraph(nodes)
             pos_subgraph = nx.spring_layout(subgraph, **kwargs)
             pos.update(pos_subgraph)
 

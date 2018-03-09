@@ -225,7 +225,7 @@ class ReviewBase:
         query_str += """
         ORDER BY r.date_time DESC
         """
-        return self._run_sql(query_str).drop(["id", "predicted", "sentence_id"], axis=1)
+        return self._run_sql(query_str).drop(["predicted", "sentence_id"], axis=1)
 
     def select_from_date(self, start_date, end_date=None):
 
