@@ -508,7 +508,7 @@ class ReviewApp:
         """
 
         data = self._base.select_detected_issue_from_date(start_date, end_date)
-        return data.drop(["predicted", "id", "sentence_id"], axis=1)
+        return data
 
     # UNSUPERVISED TASKS
     # graph of words

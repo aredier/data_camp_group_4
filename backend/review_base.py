@@ -100,7 +100,7 @@ class ReviewBase:
         if labeled:
             session = self._session_maker()
             print("importing labeled data")
-            labeled = pd.read_csv(labeled)
+            labeled = pd.read_csv(labeled).drop_duplicates()
             for label in labeled:
                 if label == "text":
                     continue
@@ -114,7 +114,7 @@ class ReviewBase:
         if unlabeled:
             print("importing unalabeled data")
             session = self._session_maker()
-            unlabeled = pd.read_csv(unlabeled)
+            unlabeled = pd.read_csv(unlabeled).drop_duplicates()
             unlabeled.progress_apply(lambda row: self._insert_unlabeled(session, row, insert_date), axis=1)
 
     def update(self, update_date=None, log_file=None):
@@ -215,7 +215,6 @@ class ReviewBase:
             query_str += """
                     AND r.date_time > '{}'
                     """.format(start_date.format("YYYY-MM-DD HH:mm:SS.000000"))
-            return self._run_sql(query_str)
         else:
             assert type(end_date) in [date, datetime, arrow], "end date must be a date or datetime object"
             end_date = arrow.get(end_date)
@@ -226,7 +225,7 @@ class ReviewBase:
         query_str += """
         ORDER BY r.date_time DESC
         """
-        return self._run_sql(query_str).drop(["id", "predicted"], axis=1)
+        return self._run_sql(query_str).drop(["id", "predicted", "sentence_id"], axis=1)
 
     def select_from_date(self, start_date, end_date=None):
 
