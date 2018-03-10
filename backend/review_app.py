@@ -368,7 +368,7 @@ class ReviewApp:
                     }
                     self._models[col] = RandomForestClassifier()
                     gs = RandomizedSearchCV(self._models[col], cv_params, n_jobs=-1, scoring="f1", verbose=3)
-                    gs.fit(x, [col])
+                    gs.fit(x, y[col])
                     self._model_params[col] = gs.best_params_
                     self._models[col] = gs.best_estimator_
                 else:
@@ -389,7 +389,7 @@ class ReviewApp:
                     print("performing cross validation")
                     cv_params = {"C": np.power(10.0, np.arange(-10, 10))}
                     self._models[col] = LogisticRegression()
-                    gs = GridSearchCV(model, cv_params, n_jobs=-1, scoring="f1", verbose=3)
+                    gs = GridSearchCV(self._models[col], cv_params, n_jobs=-1, scoring="f1", verbose=3)
                     gs.fit(x, y[col])
                     self._model_params[col] = gs.best_params_
                     self._models[col] = gs.best_estimator_
@@ -454,8 +454,8 @@ class ReviewApp:
         if not keep_params:
             self._model_params = dict()
         self._models = dict()
-        for i, j, k, s in self.train_model(*args, **kargs):
-            yield i,j, k, s
+        for value in self.train_model(*args, **kargs):
+            yield value
 
     def _predict(self, x):
         """

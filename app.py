@@ -107,6 +107,13 @@ app.layout = html.Div([
                 value = "xgb"
             ),
             html.Button("train", id="train_button"),
+            dcc.Checklist(
+                id = "do_cv",
+                options = [
+                    {"label" : "do cross validation" , "value" : "cv"}
+                ],
+                values = []
+            ),
             html.Button("update predictions (beware, very long the first time)", id="update_predictions_button"),
             html.P(id="update_error_message"),
             html.Div(id="train_resume")
@@ -297,17 +304,19 @@ def get_new_issues(categories):
         Input("train_button", "n_clicks")
     ],
     [
-        State("train_dopdown", "value")
+        State("train_dopdown", "value"),
+        State("do_cv", "values")
     ]
 )
 
-def train_backend_and_return_resume(clicks, model):
+def train_backend_and_return_resume(clicks, model, cv):
     if clicks is None:
         clicks = 0
     if clicks > 0:
         try:
             return html.Table([
                 html.Tr([
+                    html.Td("issue_type"),
                     html.Td("precision_0"),
                     html.Td("recall_0"),
                     html.Td("f1 score_0"),
@@ -330,12 +339,13 @@ def train_backend_and_return_resume(clicks, model):
                     html.Td(k[1]),
                     html.Td(s[1])
                 ])
-                for name, (i, j, k, s) in backend.train_model(model)
+                for name, (i, j, k, s) in backend.train_model(model=model, do_cv= "cv" in cv )
             ])
 
         except AssertionError:
             return html.Table([
               html.Tr([
+                  html.Td("issue_type"),
                   html.Td("precision_0"),
                   html.Td("recall_0"),
                   html.Td("f1 score_0"),
@@ -358,7 +368,7 @@ def train_backend_and_return_resume(clicks, model):
                   html.Td(k[1]),
                   html.Td(s[1])
               ])
-              for name, (i, j, k, s) in backend.retrain(model)
+              for name, (i, j, k, s) in backend.retrain(model=model, do_cv= "cv" in cv )
                 ])
 
 
