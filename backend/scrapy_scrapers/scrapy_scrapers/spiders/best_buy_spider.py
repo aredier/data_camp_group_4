@@ -13,7 +13,13 @@ class BestBuySpider(Spider):
     # Custom params
     follow_pages = True
 
-    urls = ["https://www.bestbuy.com/site/iphone/iphone-x/pcmcat1505326434742.c?id=pcmcat1505326434742"
+    urls = ["https://www.bestbuy.com/site/iphone/iphone-x/pcmcat1505326434742.c?id=pcmcat1505326434742",
+            "https://www.bestbuy.com/site/iphone/iphone-8/pcmcat1505325090069.c?id=pcmcat1505325090069",
+            "https://www.bestbuy.com/site/iphone/iphone-8-plus/pcmcat1505325776033.c?id=pcmcat1505325776033",
+            "https://www.bestbuy.com/site/samsung-galaxy/samsung-galaxy-s9/pcmcat1518637232309.c?id=pcmcat1518637232309",
+            "https://www.bestbuy.com/site/samsung-galaxy/samsung-galaxy-s9plus/pcmcat1518637475112.c?id=pcmcat1518637475112",
+            "https://www.bestbuy.com/site/samsung-galaxy/samsung-galaxy-s8/pcmcat1489428997734.c?id=pcmcat1489428997734",
+            "https://www.bestbuy.com/site/samsung-galaxy/samsung-galaxy-s8-plus/pcmcat1489429284082.c?id=pcmcat1489429284082"
             ]
 
     def start_requests(self):
