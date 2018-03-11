@@ -239,7 +239,7 @@ app.layout = html.Div(style={'backgroundColor': colors['generalbackground']}, ch
             options=[{'label': i, 'value': i} for i in ISSUE_NAMES],
             multi=True
     ),
-    html.Button("update datebase", id="update_database", style ={'font_family' : 'Georgia', 
+    html.Button("Update datebase", id="update_database", style ={'font_family' : 'Georgia', 
                                 'font-size':'110%', 
                                 'backgroundColor': colors['background'], 
                                 'align-self': 'center'}),
