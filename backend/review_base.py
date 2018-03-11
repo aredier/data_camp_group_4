@@ -100,7 +100,7 @@ class ReviewBase:
         if labeled:
             session = self._session_maker()
             print("importing labeled data")
-            labeled = pd.read_csv(labeled).drop_duplicates()
+            labeled = pd.read_csv(labeled).drop_duplicates('text')
             for label in labeled:
                 if label == "text":
                     continue
@@ -114,7 +114,7 @@ class ReviewBase:
         if unlabeled:
             print("importing unalabeled data")
             session = self._session_maker()
-            unlabeled = pd.read_csv(unlabeled).drop_duplicates()
+            unlabeled = pd.read_csv(unlabeled).drop_duplicates('text')
             unlabeled.progress_apply(lambda row: self._insert_unlabeled(session, row, insert_date), axis=1)
 
     def update(self, update_date=None, log_file=None):

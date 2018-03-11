@@ -4,6 +4,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 import plotly.graph_objs as go
 import arrow
+import base64
 
 from backend import ReviewApp
 
@@ -13,7 +14,7 @@ app.config['suppress_callback_exceptions']=True
 backend = ReviewApp("data/test_predicted.db")
 #backend.build_data_base(unlabeled="data/data_unlabeled.csv", labeled="data/labeled_data.csv")
 #backend.update_data_base("data/scraper.log")
-backend._build_vocab(preprocess=True)
+#backend._build_vocab(preprocess=True)
 
 
 COLORS = ["rgba(221, 167, 123, 1)",
@@ -85,56 +86,152 @@ def compute_issue_phone_pie_chart():
     return {
         "data": [go.Pie(
             labels=[x[0] for x in issue_count],
-            values=[x[1] for x in issue_count]
+            values=[x[1] for x in issue_count], 
+            marker = dict(colors= ['#F7C9B5', '#84ACED'], 
+                           line=dict(color='#000000', width=1))
         )]
     }
 
 
 # LAYOUT
-#
-#
-app.layout = html.Div([
+
+colors = {
+    'generalbackground' : '#F0F8FD',
+    'background': '#D5ECF8',
+    'text': '#0583C7'
+}
+
+image_filename = 'the_insighter.png'
+encoded_image = base64.b64encode(open(image_filename, 'rb').read())
+
+app.layout = html.Div(style={'backgroundColor': colors['generalbackground']}, children =
+    [html.Div([html.Img(src='data:image/png;base64,{}'.format(encoded_image.decode()))]),
+     html.Div(style={'backgroundColor': colors['background']}, children = 
+            [html.H1(children="Detection of Smartphone issues", style={
+            'textAlign': 'center',
+            'color': colors['text'], 
+            'font-size': '300%', 
+            'font-family':'Impact'
+        })]),
+    html.Div(children = '''Welcome on your platform to visualize the main issues customer 
+             encounter and complain about on smartphones. First, you will be able to choose the 
+             way you train your model. Three options are available : XGBoost (which is recommanded 
+             for better prediction but is computationally intensive), Random Forest and Logistic 
+             Regression (the fastest computationally). Thanks to the training, you will be able 
+             to set the prediction for each comment to be an issue, and which issue it is. Then, 
+             you can visualize the proportion of each issues customer encounter and identify the 
+             main sources of unsatisfaction. We provide also a plot showing the evolution of the issues over time.
+             Finally, you can have a look at the comments containing an issue, selecting the issue 
+             type you want to see, and eventually update the predictions if wrong to improve the model.''', 
+             style ={'font_family' : 'Georgia',
+                     'font-size': '120%'}),
     html.Div([
-        html.H2("training model"),
+        html.H2(children="Training your model", style={
+            'textAlign': 'center',
+            'color': colors['text'], 
+            'font-size': '200%', 
+            'font-family':'Impact'
+        }),
+        html.Div(children= "Choose how you want to train your model:", 
+             style ={'font_family' : 'Georgia',
+                     'font-size': '120%'}),
         html.Div([
             dcc.Dropdown(
                 id = "train_dopdown",
                 options = [
-                    {"label" : "XGBoost (recomended)", "value" : "xgb"},
+                    {"label" : "XGBoost (recommended)", "value" : "xgb"},
                     {"label" : "Random Forest", "value" : "rf"},
-                    {"label" : "logistic regression", "value" : "logreg"}
+                    {"label" : "Logistic Regression", "value" : "logreg"}
                 ],
                 value = "xgb"
             ),
-            html.Button("train", id="train_button"),
             dcc.Checklist(
-                id = "do_cv",
                 options = [
-                    {"label" : "do cross validation" , "value" : "cv"}
+                    {"label" : "Do cross validation" , "value" : "cv"}
                 ],
-                values = []
+                id = "do_cv",
+                values = [], 
+                style ={'font_family' : 'Georgia', 'font-size':'110%'}
             ),
-            html.Button("update predictions (beware, very long the first time)", id="update_predictions_button"),
+            html.Button(children="Train", 
+                        id="train_button", 
+                        style ={'font_family' : 'Georgia', 
+                                'font-size':'110%', 
+                                'backgroundColor': colors['background'], 
+                                'align-self': 'center'}),
+            html.Div(children= '''Then, once you have trained your model, 
+                     you can update the prediction of the issues.''', 
+             style ={'font_family' : 'Georgia',
+                     'font-size': '120%'}),
+            html.Button("Update predictions (beware, very long the first time)", 
+                        id="update_predictions_button", 
+                        style ={'font_family' : 'Georgia', 
+                                'font-size':'110%', 
+                                'backgroundColor': colors['background']}),
             html.P(id="update_error_message"),
             html.Div(id="train_resume")
         ],
         style = {"display" : "inline"}
         ),
     ]),
+    html.Div([
+        html.H2(children="Visualisation of the results", style={
+            'textAlign': 'center',
+            'color': colors['text'], 
+            'font-size': '200%', 
+            'font-family':'Impact'
+        }),
+            html.Div(children= '''Here are the proportions of each issues customers complain about.
+                     By default, you will only see the proportion of each issue we hand-labeled. 
+                     By clicking on the button 'Include the prediction of the model', 
+                     you will see all the issues including the ones predicted.
+                     ''',
+                     style ={'font_family' : 'Georgia',
+                     'font-size': '120%'})]),
     dcc.Checklist(
         id = "issue_type_source",
         options = [
-            {"label" : "include predicted by model" , "value" : "predicted"}
+            {"label" : 'Include the prediction of the model' , "value" : "predicted"}
         ],
-        values = []
+        values = [],
+        style ={'font_family' : 'Georgia', 'font-size':'110%'}
     ),
+    html.H4(children="Provenence of the issues of smartphones", style={
+            'textAlign': 'center',
+            'color': colors['text'], 
+            'font-size': '120%', 
+            'font-family':'Georgia'
+        }),
     dcc.Graph(id="issue_type_graph"),
-    html.H1("test"),
-    html.Div(id="issue_phone_graph"),
-    html.H3("issue type detected over time"),
+    html.H4(children = "Issue type detected over time", style={
+            'textAlign': 'center',
+            'color': colors['text'], 
+            'font-size': '120%', 
+            'font-family':'Georgia'
+        }),
     html.Div(
-        id = "reviews_over_time"
-    ),
+        id = "reviews_over_time"),
+    html.H4(children="Phones concerned by the issues", style={
+            'textAlign': 'center',
+            'color': colors['text'], 
+            'font-size': '120%', 
+            'font-family':'Georgia'
+        }),
+    html.Div(id="issue_phone_graph"),
+    html.H2(children="Comments containing issues", style={
+            'textAlign': 'center',
+            'color': colors['text'], 
+            'font-size': '200%', 
+            'font-family':'Impact'
+        }),
+    html.Div(children= '''Here you can see the comments containing issues. You can select one or 
+             more issue types you want to see in the table. On the right-hand side of the table, if you notice 
+             the issue contained in the comment is ill-predicted, you can update by hand the data 
+             table, which will improve your model and give you better results for the next learning
+             phase. (Still building this functionnality)
+                     ''',
+                     style ={'font_family' : 'Georgia',
+                     'font-size': '120%'}),
     html.P(id="change_issue_message",
            children="placeholder"),
     dcc.Dropdown(
@@ -142,7 +239,10 @@ app.layout = html.Div([
             options=[{'label': i, 'value': i} for i in ISSUE_NAMES],
             multi=True
     ),
-    html.Button("update datebase", id="update_database"),
+    html.Button("update datebase", id="update_database", style ={'font_family' : 'Georgia', 
+                                'font-size':'110%', 
+                                'backgroundColor': colors['background'], 
+                                'align-self': 'center'}),
     html.P(id="invisible_text",
            children="placeholder "
            ),
@@ -165,7 +265,7 @@ def update_predictions(clicks):
             return
         except AssertionError:
             print("raised exception")
-            return "you can only update the predictions when the model is trained"
+            return "You can only update the predictions when the model is trained"
 
 @app.callback(
     Output("issue_phone_graph", "children"),
@@ -180,7 +280,7 @@ def return_issue_per_phone_graph(bs):
         return dcc.Graph(id="phone_issue_graph", figure=compute_issue_phone_pie_chart())
 
     else:
-        return html.P("sorry, this component can only be loaded once the predictions have been updated")
+        return html.P("Sorry, this component can only be loaded once the predictions have been updated")
 
 @app.callback(
     Output("reviews_over_time", "children"),
@@ -214,25 +314,29 @@ def compute_reviews_over_time(bs):
                             fill='tonexty',
                             mode="none",
                             name=col,
-                            fillcolor=COLORS[i],
+                            fillcolor=['#F3C2BC', '#F7C9B5', '#F2DBA0', '#EEEDA2', '#DCF6A4', '#9EF48F', '#90F2D2', '#84E8E9', '#84ACED','#C396E9','#EF99EB'], 
                             text=[str(i) for i in data[col]["value"]],
                             hoverinfo="text"
                         )
                         for i, col in enumerate(ISSUE_NAMES)
         ]))
     else:
-        return html.P("sorry, this component can only be loaded once the predictions have been updated")
+        return html.P("Sorry, this component can only be loaded once the predictions have been updated")
 
 @app.callback(
     Output("issue_type_graph", "figure"),
     [Input("issue_type_source", "values")]
 )
+          
 def compute_issue_type_pie_chart(options):
     issue_count =[ (k, v) for k, v in backend.issue_type_count("predicted" in options).items()]
-    return {
-        "data" : [go.Pie(
-            labels = [x[0] for x in issue_count],
-            values = [x[1] for x in issue_count]
+    return {'data' : [go.Pie(
+                    labels = [x[0] for x in issue_count],
+                    values = [x[1] for x in issue_count], 
+                    marker = dict(colors= ['#F3C2BC', '#F7C9B5', '#F2DBA0', '#EEEDA2', 
+                                           '#DCF6A4', '#9EF48F', '#90F2D2', '#84E8E9', '#84ACED',
+                                           '#C396E9','#EF99EB'], 
+                           line=dict(color='#000000', width=1))
         )]
     }
 
@@ -261,6 +365,28 @@ def get_new_issues(categories):
     if categories is None or categories == list():
         categories = ["issue"]
     return html.Table([
+                html.Tr([
+                    html.Td("Date of the issue", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        "width" : "50%", 
+                        'background': '#D5ECF8', 
+                        'textAlign': 'center', 
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("Comment containing the issue", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        "width" : "50%", 'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("Label of the issue (if no label the model predicted there is an issue but cannot define which one)", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        "width" : "50%", 'background': '#D5ECF8', 'textAlign': 'center', 
+                        'color': colors['text'], 'font-family':'Georgia'
+                    })
+                ])] + [
         html.Tr([
             html.Td(
                 issue_dic["date"],
@@ -316,28 +442,90 @@ def train_backend_and_return_resume(clicks, model, cv):
         try:
             return html.Table([
                 html.Tr([
-                    html.Td("issue_type"),
-                    html.Td("precision_0"),
-                    html.Td("recall_0"),
-                    html.Td("f1 score_0"),
-                    html.Td("total number of 0"),
+                    html.Td("Issue type", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("Precision for 0", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("Recall for 0", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("F1 score for 0", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("Total number of 0", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
 
-                    html.Td("precision_1"),
-                    html.Td("recall_1"),
-                    html.Td("f1 score_1"),
-                    html.Td("total number of 1")
+                    html.Td("Precision for 1", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("Recall for 1", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("F1 score for 1", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("Total number of 1", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    })
                 ])] + [
                 html.Tr([
-                    html.Td(name),
-                    html.Td(i[0]),
-                    html.Td(j[0]),
-                    html.Td(k[0]),
-                    html.Td(s[0]),
+                    html.Td(name, style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
+                    html.Td(round(i[0], 2), style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
+                    html.Td(round(j[0], 2), style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
+                    html.Td(round(k[0], 2), style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
+                    html.Td(round(s[0], 2), style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
 
-                    html.Td(i[1]),
-                    html.Td(j[1]),
-                    html.Td(k[1]),
-                    html.Td(s[1])
+                    html.Td(round(i[1], 2), style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
+                    html.Td(round(j[1], 2), style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
+                    html.Td(round(k[1], 2), style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
+                    html.Td(round(s[1], 2), style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"})
                 ])
                 for name, (i, j, k, s) in backend.train_model(model=model, do_cv= "cv" in cv )
             ])
@@ -345,28 +533,89 @@ def train_backend_and_return_resume(clicks, model, cv):
         except AssertionError:
             return html.Table([
               html.Tr([
-                  html.Td("issue_type"),
-                  html.Td("precision_0"),
-                  html.Td("recall_0"),
-                  html.Td("f1 score_0"),
-                  html.Td("total number of 0"),
+                    html.Td("Issue type", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("Precision for 0", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("Recall for 0", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("F1 score for 0", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("Total number of 0", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
 
-                  html.Td("precision_1"),
-                  html.Td("recall_1"),
-                  html.Td("f1 score_1"),
-                  html.Td("total number of 1")
+                    html.Td("Precision for 1", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("Recall for 1", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("F1 score for 1", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    }),
+                    html.Td("Total number of 1", style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse",
+                        'background': '#D5ECF8', 'textAlign': 'center',
+                        'color': colors['text'], 'font-family':'Georgia'
+                    })
               ])] + [
               html.Tr([
-                  html.Td(name),
-                  html.Td(i[0]),
-                  html.Td(j[0]),
-                  html.Td(k[0]),
-                  html.Td(s[0]),
+                    html.Td(name),
+                    html.Td(round(i[0], 2), style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
+                    html.Td(round(j[0], 2), style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
+                    html.Td(round(k[0], 2), style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
+                    html.Td(round(s[0], 2), style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
 
-                  html.Td(i[1]),
-                  html.Td(j[1]),
-                  html.Td(k[1]),
-                  html.Td(s[1])
+                    html.Td(round(i[1], 2), style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
+                    html.Td(round(j[1], 2), style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
+                    html.Td(round(k[1], 2),  style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"}),
+                    html.Td(round(s[1], 2),  style={
+                        "border": "1px solid black",
+                        "border-collapse": "collapse"})
               ])
               for name, (i, j, k, s) in backend.retrain(model=model, do_cv= "cv" in cv )
                 ])

@@ -1,6 +1,6 @@
 arrow==0.12.1
 dash==0.21.0
-dash-core-components==0.20.2
+dash-core-components==0.21.0rc1
 dash-html-components==0.9.0
 dash-renderer==0.11.3
 matplotlib==2.1.2
