@@ -11,10 +11,9 @@ from backend import ReviewApp
 app = dash.Dash()
 app.config['suppress_callback_exceptions']=True
 
-backend = ReviewApp("data/test_predicted.db")
-#backend.build_data_base(unlabeled="data/data_unlabeled.csv", labeled="data/labeled_data.csv")
-#backend.update_data_base("data/scraper.log")
-#backend._build_vocab(preprocess=True)
+backend = ReviewApp("data/test_predicted_2.db")
+#backend.build_data_base( unlabeled="data/data_unlabeled.csv")
+backend._build_vocab(preprocess=True)
 
 
 COLORS = ["rgba(221, 167, 123, 1)",
@@ -35,51 +34,6 @@ COLORS = ["rgba(221, 167, 123, 1)",
 
 ISSUE_NAMES = backend.issue_categories
 DISPLAYED_ISSUES = []
-
-
-class IssueCallBackGenerator:
-
-    def __init__(self):
-        self.issue_ids = []
-
-    def clean_callback_list(self):
-        self.issue_ids = []
-
-    def process_isse(self,id):
-        self.issue_ids.append(id)
-        return id
-
-    @staticmethod
-    def basic_callbacks(clicks, values):
-        if clicks > 0 :
-            print("test")
-            return "changed issue to {}".format(" ,".join(values))
-
-    @staticmethod
-    def general_callback(*children):
-        print("got there")
-        return children[0]
-
-    def build_issue_change_callbacks(self):
-        for id in self.issue_ids:
-            app.callback(
-                Output("issue_{}_callback_output".format(id), "children"),
-                [Input("update_database", "n_clicks")],
-                [State("issue_{}".format(id), "value")]
-            )(self.basic_callbacks)
-            print("callback id {} created ".format(id))
-
-        app.callback(
-            Output("change_issue_message", "children"),
-            [
-                Input("issue_{}_callback_output".format(id), "children")
-                for id in self.issue_ids
-            ]
-        )(self.general_callback)
-        print("general callback created")
-
-issue_call_backs = IssueCallBackGenerator()
-
 
 def compute_issue_phone_pie_chart():
     issue_count = [(k,v) for k, v in backend._base.get_phone_issue_count(True).items()]
@@ -361,7 +315,6 @@ def rebuild_issues():
     ]
 )
 def get_new_issues(categories):
-    issue_call_backs.clean_callback_list()
     if categories is None or categories == list():
         categories = ["issue"]
     return html.Table([
