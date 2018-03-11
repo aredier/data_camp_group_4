@@ -53,7 +53,10 @@ class ReviewApp:
         self._models = dict()
         self._model_params = dict()
         self._vocab = None
-        self.predicted = self._base.get_not_predicted().shape[0] == 0
+        try:
+            self.predicted = self._base.get_not_predicted().shape[0] == 0
+        except pd.io.sql.DatabaseError:
+            self.predicted = False
 
     def issue_type_count(self, options):
         return self._base.get_issue_type_count(options)
@@ -509,7 +512,6 @@ class ReviewApp:
         start_date -- datetime.date or datetime.datetime : date from which to find issues
         end_date -- datetime.date or datetime.datetime : date at which to en search
         """
-
         data = self._base.select_detected_issue_from_date(start_date, end_date)
         return data
 

@@ -36,7 +36,7 @@ class ReviewBase:
         LIMIT 2
         """
 
-        return self._run_sql(query_str).drop(["issue", "sentence_id", "predicted", "id"], axis=1).columns.tolist()
+        return self._run_sql(query_str, drop=False).drop(["issue", "sentence_id", "predicted", "id"], axis=1).columns.tolist()
 
 
     def _add_issue(self, label):
@@ -128,8 +128,8 @@ class ReviewBase:
                 update_date = update_date.date_time.replace(tzinfo=None)
 
         process_args = {
-            "LOG_LEVEL" : "INFO",
-            'USER_AGENT': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:57.0) Gecko/20100101 Firefox/57.0',
+            "LOG_LEVEL" : "DEBUG",
+            'USER_AGENT': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:58.0) Gecko/20100101 Firefox/58.0",
             "path": self._path,
             "date_time": update_date,
             "ITEM_PIPELINES": {
@@ -168,9 +168,11 @@ class ReviewBase:
     # SQL ABSTRACTIONS
     #
     #
-    def _run_sql(self, query_str):
-
-        return pd.read_sql_query(query_str, self._conn)
+    def _run_sql(self, query_str, drop=True):
+        if drop:
+            return pd.read_sql_query(query_str, self._conn).drop_duplicates("sentence")
+        else:
+            return pd.read_sql_query(query_str, self._conn)
 
     def get_train(self):
 
@@ -200,7 +202,7 @@ class ReviewBase:
         return data.drop(["issue_id"], axis=1).iloc[:10000,:]
 
     def select_detected_issue_from_date(self, start_date, end_date=None):
-        assert type(start_date) in [date, datetime, arrow], "start date must be a date or datetime object"
+        assert type(start_date) in [date, datetime, arrow.Arrow], "start date must be a date or datetime object"
         start_date = arrow.get(start_date)
         query_str = """
                     SELECT  r.date_time, s.sentence, i.*
@@ -216,7 +218,7 @@ class ReviewBase:
                     AND r.date_time > '{}'
                     """.format(start_date.format("YYYY-MM-DD HH:mm:SS.000000"))
         else:
-            assert type(end_date) in [date, datetime, arrow], "end date must be a date or datetime object"
+            assert type(end_date) in [date, datetime, arrow.Arrow], "end date must be a date or datetime object"
             end_date = arrow.get(end_date)
             query_str += """
                     AND r.date_time > '{}' AND r.date_time < '{}'
@@ -266,7 +268,7 @@ class ReviewBase:
         FROM issues
         """
 
-        df = self._run_sql(query_str)
+        df = self._run_sql(query_str, drop=False)
         if predicted:
             return df.drop(["id", "sentence_id", "predicted", "issue"], axis=1).apply(sum, axis = 0).to_dict()
         else:
@@ -285,7 +287,7 @@ class ReviewBase:
         WHERE i.issue != 0
         """
 
-        df = self._run_sql(query_str)
+        df = self._run_sql(query_str, drop=False)
         df["full_model"] = df.apply(lambda row: " ".join([row["name"], str(row["memory_size"])]), axis=1)
         return df.groupby("full_model").agg("count")["name"].to_dict()
 
