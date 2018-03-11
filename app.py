@@ -1,3 +1,5 @@
+from datetime import date
+
 import dash
 from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
@@ -13,7 +15,7 @@ app.config['suppress_callback_exceptions']=True
 
 backend = ReviewApp("data/test_predicted_2.db")
 #backend.build_data_base( unlabeled="data/data_unlabeled.csv")
-backend._build_vocab(preprocess=True)
+#backend._build_vocab(preprocess=True)
 
 
 COLORS = ["rgba(221, 167, 123, 1)",
@@ -193,6 +195,11 @@ app.layout = html.Div(style={'backgroundColor': colors['generalbackground']}, ch
             options=[{'label': i, 'value': i} for i in ISSUE_NAMES],
             multi=True
     ),
+    dcc.DatePickerRange(
+        id = "issue_date_picker",
+        start_date = date(2018,1,1),
+        end_date=arrow.get().date()
+    ),
     html.Button("update datebase", id="update_database", style ={'font_family' : 'Georgia', 
                                 'font-size':'110%', 
                                 'backgroundColor': colors['background'], 
@@ -294,8 +301,10 @@ def compute_issue_type_pie_chart(options):
         )]
     }
 
-def rebuild_issues():
-    issue_df = backend.find_issues()
+def rebuild_issues(start_date, end_date):
+    start_date = arrow.get(start_date)
+    end_date = arrow.get(end_date)
+    issue_df = backend.find_issues(start_date=start_date, end_date=end_date)
     #internal function
     def build_single_issue(row):
         return({"id" : row["id"],
@@ -311,10 +320,12 @@ def rebuild_issues():
 @app.callback(
     Output("new_issue_list", "children"),
     [
-        Input("categories", "value")
+        Input("categories", "value"),
+        Input("issue_date_picker", "start_date"),
+        Input("issue_date_picker", "end_date")
     ]
 )
-def get_new_issues(categories):
+def get_new_issues(categories, start_date, end_date):
     if categories is None or categories == list():
         categories = ["issue"]
     return html.Table([
@@ -368,7 +379,7 @@ def get_new_issues(categories):
         ])
 
         for issue_dic
-        in rebuild_issues()
+        in rebuild_issues(start_date, end_date)
         if set(issue_dic["issues"]) & set(categories) != set()
     ], style = {
         "border" : "1px solid black",

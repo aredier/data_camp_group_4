@@ -202,7 +202,7 @@ class ReviewBase:
         return data.drop(["issue_id"], axis=1).iloc[:10000,:]
 
     def select_detected_issue_from_date(self, start_date, end_date=None):
-        assert type(start_date) in [date, datetime, arrow], "start date must be a date or datetime object"
+        assert type(start_date) in [date, datetime, arrow.Arrow], "start date must be a date or datetime object"
         start_date = arrow.get(start_date)
         query_str = """
                     SELECT  r.date_time, s.sentence, i.*
@@ -218,7 +218,7 @@ class ReviewBase:
                     AND r.date_time > '{}'
                     """.format(start_date.format("YYYY-MM-DD HH:mm:SS.000000"))
         else:
-            assert type(end_date) in [date, datetime, arrow], "end date must be a date or datetime object"
+            assert type(end_date) in [date, datetime, arrow.Arrow], "end date must be a date or datetime object"
             end_date = arrow.get(end_date)
             query_str += """
                     AND r.date_time > '{}' AND r.date_time < '{}'

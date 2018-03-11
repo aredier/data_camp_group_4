@@ -512,7 +512,6 @@ class ReviewApp:
         start_date -- datetime.date or datetime.datetime : date from which to find issues
         end_date -- datetime.date or datetime.datetime : date at which to en search
         """
-
         data = self._base.select_detected_issue_from_date(start_date, end_date)
         return data
 
