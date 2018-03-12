@@ -15,7 +15,7 @@ app.config['suppress_callback_exceptions']=True
 
 backend = ReviewApp("data/test_predicted_2.db")
 #backend.build_data_base( unlabeled="data/data_unlabeled.csv")
-#backend._build_vocab(preprocess=True)
+backend._build_vocab(preprocess=True)
 
 
 COLORS = ["rgba(221, 167, 123, 1)",
@@ -491,7 +491,7 @@ def train_backend_and_return_resume(clicks, model, cv):
                         "border": "1px solid black",
                         "border-collapse": "collapse"})
                 ])
-                for name, (i, j, k, s) in backend.train_model(model=model, do_cv= "cv" in cv )
+                for name, (i, j, k, s) in backend.retrain(model=model, do_cv= "cv" in cv )
             ])
 
         except AssertionError:

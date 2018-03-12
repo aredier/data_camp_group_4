@@ -168,6 +168,18 @@ class ReviewBase:
     # SQL ABSTRACTIONS
     #
     #
+
+    def delete_predictions(self):
+
+        Base2 = automap_base()
+        Base2.prepare(self._engine, reflect=True)
+        Issue = Base2.classes.issues
+        session = self._session_maker()
+
+        q = session.query(Issue).filter(Issue.predicted == 1).delete()
+        session.commit()
+        session.close()
+
     def _run_sql(self, query_str, drop=True):
         if drop:
             return pd.read_sql_query(query_str, self._conn).drop_duplicates("sentence")

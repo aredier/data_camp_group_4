@@ -292,7 +292,7 @@ class ReviewApp:
         if additional is not None:
             assert type(additional) is pd.DataFrame, "additional data dataframe must be of type pd.DataFrame"
             all_df.append(additional)
-        vocab_dict = self._build_vocab( preprocess=True)
+        vocab_dict = self._build_vocab(preprocess=True)
 
         # checking the data is preprocessed
         if "tokenized_text" not in train.columns:
@@ -431,7 +431,6 @@ class ReviewApp:
             y_train = y
 
         print("training model")
-
         self._inner_train(x_train, y_train, model, do_cv=do_cv)
 
         if do_test_analysis:
@@ -469,8 +468,6 @@ class ReviewApp:
         ----------
         x -- pd.Dataframe or np.array : bag of word of entry
          """
-
-        x = pd.DataFrame(x)
         res = pd.DataFrame()
         for col in tqdm(self._models.keys()):
             res = pd.concat([res, pd.DataFrame(self._models[col].predict(x), columns=[col])], axis=1)
@@ -481,9 +478,9 @@ class ReviewApp:
         updates the predictions in the data base
         """
 
-        self.predicted = True
-        print("got there")
+
         assert self._models != dict(), "model must be fitted or loaded before predictions are possible"
+        self._base.delete_predictions()
         data = self._base.get_not_predicted()
         i = 0
         while data.shape[0] != 0:
@@ -501,6 +498,8 @@ class ReviewApp:
 
             i += 1
             data = self._base.get_not_predicted()
+
+        self.predicted = True
 
     def find_issues(self, start_date=datetime(2018, 1, 1), end_date=None):
         """
