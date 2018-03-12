@@ -10,7 +10,7 @@ from nltk.stem import WordNetLemmatizer
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, GridSearchCV
-from sklearn.metrics import classification_report, precision_recall_fscore_support
+from sklearn.metrics import precision_recall_fscore_support
 
 from xgboost import XGBClassifier
 from sklearn.linear_model import LogisticRegression
@@ -168,7 +168,7 @@ class ReviewApp:
     @staticmethod
     def _tokenize_df(df, target="sentence"):
         """
-        tokenizing the columb tartget of a data frame with progress bar
+        tokenizing the columb target of a data frame with progress bar
 
 
         Arguments:
