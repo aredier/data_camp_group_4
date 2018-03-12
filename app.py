@@ -11,28 +11,11 @@ import base64
 from backend import ReviewApp
 
 app = dash.Dash()
-app.config['suppress_callback_exceptions']=True
+app.config['suppress_callback_exceptions'] = True
 
 backend = ReviewApp("data/test_predicted_2.db")
-#backend.build_data_base( unlabeled="data/data_unlabeled.csv")
+#backend.build_data_base(log_file="data/scraper_2.log")
 #backend._build_vocab(preprocess=True)
-
-
-COLORS = ["rgba(221, 167, 123, 1)",
-          "rgba(206, 182, 174, 1)",
-          "rgba(179, 151, 143, 1)",
-          "rgba(203, 204, 291, 1)",
-          "rgba(161, 162, 137, 1)",
-          "rgba(132, 134, 113, 1)",
-          "rgba(166, 156, 153, 1)",
-          "rgba(121, 109, 105, 1)",
-          "rgba(78, 68, 67, 1)",
-          "rgba(134, 129, 128, 1)",
-          "rgba(114, 112, 116, 1)",
-          "rgba(76, 74, 79, 1)",
-          "rgba(55, 61, 32, 1)"
-          "rgba(61, 59, 63, 1)"
-          ]
 
 ISSUE_NAMES = backend.issue_categories
 DISPLAYED_ISSUES = []
@@ -43,7 +26,7 @@ def compute_issue_phone_pie_chart():
         "data": [go.Pie(
             labels=[x[0] for x in issue_count],
             values=[x[1] for x in issue_count], 
-            marker = dict(colors= ['#F7C9B5', '#84ACED'], 
+            marker = dict(colors= ['#F3C2BC', '#F7C9B5', '#F2DBA0', '#EEEDA2', '#DCF6A4', '#9EF48F', '#90F2D2', '#84E8E9', '#84ACED','#C396E9','#EF99EB'], 
                            line=dict(color='#000000', width=1))
         )]
     }
