@@ -20,7 +20,6 @@ backend._build_vocab(preprocess=True)
 
 
 ISSUE_NAMES = backend.issue_categories
-DISPLAYED_ISSUES = []
 
 def compute_issue_phone_pie_chart():
     issue_count = [(k,v) for k, v in backend._base.get_phone_issue_count(True).items()]
