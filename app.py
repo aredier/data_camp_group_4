@@ -41,7 +41,7 @@ colors = {
     'text': '#0583C7'
 }
 
-image_filename = 'the_insighter.png'
+image_filename = 'ressources/the_insighter.png'
 encoded_image = base64.b64encode(open(image_filename, 'rb').read())
 
 app.layout = html.Div(style={'backgroundColor': colors['generalbackground']}, children =
