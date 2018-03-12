@@ -473,7 +473,10 @@ class ReviewApp:
          """
         res = pd.DataFrame()
         for col in tqdm(self._models.keys()):
-            res = pd.concat([res, pd.DataFrame(self._models[col].predict(x), columns=[col])], axis=1)
+            if type(self._models[col] is XGBClassifier):
+                res = pd.concat([res, pd.DataFrame(self._models[col].predict(x), columns=[col])], axis=1)
+            else:
+                res = pd.concat([res, pd.DataFrame(self._models[col].predict(x.todense()), columns=[col])], axis=1)
         return res
 
     def update_predictions(self):
@@ -490,7 +493,7 @@ class ReviewApp:
             print("UPDATING PREDICTIONS FOR CHUNK {}".format(i))
             x = self.bow_preprocessing(data)
             print("- performing predictions")
-            y =  self._predict(x.todense())
+            y =  self._predict(x)
             y_val = y.values
             ids = data["id"].values.reshape(-1,1)
             if y_val.shape[0] != ids.shape[0]:

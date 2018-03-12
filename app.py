@@ -13,7 +13,7 @@ from backend import ReviewApp
 app = dash.Dash()
 app.config['suppress_callback_exceptions'] = True
 
-backend = ReviewApp("data/test_predicted_2.db")
+backend = ReviewApp("data/data.db")
 
 #backend.build_data_base(labeled="data/labeled_data.db",unlabeled="data_unlabeled.csv", log_file="data/scraper_2.log")
 backend._build_vocab(preprocess=True)
