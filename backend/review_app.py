@@ -10,7 +10,7 @@ from nltk.stem import WordNetLemmatizer
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, GridSearchCV
-from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import precision_recall_fscore_support, classification_report
 
 from xgboost import XGBClassifier
 from sklearn.linear_model import LogisticRegression
@@ -186,7 +186,7 @@ class ReviewApp:
         df["tokenized_text"] = df[target].progress_apply(ReviewApp._tokenize_lematize)
         return df
 
-    def _build_vocab(self, preprocess=False):
+    def _build_vocab(self, *additionals, preprocess=False):
         """
         function that builds a vocabulary from various data_frames
 
@@ -203,7 +203,7 @@ class ReviewApp:
         """
         if self._vocab is not None:
             return self._vocab
-        data_frames = [self._base.get_all_text()]
+        data_frames = [self._base.get_all_text(), *additionals]
         assert all([type(df) is pd.DataFrame for df in data_frames]), "all input data must be dataframes"
         if preprocess:
             tqdm.pandas()
@@ -403,7 +403,7 @@ class ReviewApp:
                     self._models[col] = LogisticRegression(**self._model_params[col])
                     self._models[col].fit(x, y[col])
 
-    def train_model(self, model="xgb", do_test_analysis=True, test_prop=0.33, do_cv=False):
+    def train_model(self, model="xgb", do_test_analysis=True, format_analysis=False, test_prop=0.33, do_cv=False):
         """
         trains app's inner model
 
@@ -438,7 +438,10 @@ class ReviewApp:
             for col in y_test.columns:
                 print("for {}".format(col))
                 y_pred = self._models[col].predict(x_test)
-                yield col, precision_recall_fscore_support(y_test[col], y_pred)
+                if format_analysis:
+                    yield(classification_report(y_test[col], y_pred))
+                else:
+                    yield col, precision_recall_fscore_support(y_test[col], y_pred)
 
     def retrain(self, keep_params=False, *args, **kargs):
         """

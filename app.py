@@ -15,7 +15,7 @@ app.config['suppress_callback_exceptions'] = True
 
 backend = ReviewApp("data/test_predicted_2.db")
 
-#backend.build_data_base(log_file="data/scraper_2.log")
+#backend.build_data_base(labeled="data/labeled_data.db",unlabeled="data_unlabeled.csv", log_file="data/scraper_2.log")
 backend._build_vocab(preprocess=True)
 
 
@@ -221,7 +221,7 @@ def update_predictions(clicks):
 def return_issue_per_phone_graph(bs):
     if bs is None:
         bs = 0
-    if backend.predicted and bs > 0:
+    if backend.predicted:
         return dcc.Graph(id="phone_issue_graph", figure=compute_issue_phone_pie_chart())
 
     else:
@@ -236,7 +236,7 @@ def return_issue_per_phone_graph(bs):
 def compute_reviews_over_time(bs):
     if bs is None:
         bs = 0
-    if backend.predicted and bs > 0:
+    if backend.predicted:
         issue_df = backend.find_issues().drop(["issue", "sentence"], axis=1)
         issues_grouped_by_date = issue_df.groupby(["date_time"]).agg(sum)
         dates = issues_grouped_by_date.index.values.tolist()
@@ -311,13 +311,13 @@ def rebuild_issues(start_date, end_date):
 )
 def get_new_issues(categories, start_date, end_date):
     if categories is None or categories == list():
-        categories = ["issue"]
+        categories = []
     return html.Table([
                 html.Tr([
                     html.Td("Date of the issue", style={
                         "border": "1px solid black",
                         "border-collapse": "collapse",
-                        "width" : "50%", 
+                        "width" : "10%",
                         'background': '#D5ECF8', 
                         'textAlign': 'center', 
                         'color': colors['text'], 'font-family':'Georgia'
@@ -331,7 +331,7 @@ def get_new_issues(categories, start_date, end_date):
                     html.Td("Label of the issue (if no label the model predicted there is an issue but cannot define which one)", style={
                         "border": "1px solid black",
                         "border-collapse": "collapse",
-                        "width" : "50%", 'background': '#D5ECF8', 'textAlign': 'center', 
+                        "width" : "40%", 'background': '#D5ECF8', 'textAlign': 'center',
                         'color': colors['text'], 'font-family':'Georgia'
                     })
                 ])] + [
@@ -346,8 +346,7 @@ def get_new_issues(categories, start_date, end_date):
             html.Td(issue_dic["sentence"],
                     style={
                         "border": "1px solid black",
-                        "border-collapse": "collapse",
-                        "width" : "50%"
+                        "border-collapse": "collapse"
                     }),
             html.Td(dcc.Dropdown(
                         id='issue_{}'.format(issue_dic["id"]),
@@ -357,8 +356,7 @@ def get_new_issues(categories, start_date, end_date):
                      ),
                     style={
                         "border": "1px solid black",
-                        "border-collapse": "collapse",
-                        "width" : "0%"
+                        "border-collapse": "collapse"
                     })
         ])
 
