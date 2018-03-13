@@ -1,4 +1,5 @@
 from datetime import date
+import warnings
 
 import dash
 from dash.dependencies import Input, Output, State
@@ -14,7 +15,7 @@ app = dash.Dash()
 app.config['suppress_callback_exceptions'] = True
 
 backend = ReviewApp("data/data.db")
-
+warnings.filterwarnings("ignore")
 #backend.build_data_base(labeled="data/labeled_data.db",unlabeled="data_unlabeled.csv", log_file="data/scraper_2.log")
 backend._build_vocab(preprocess=True)
 
@@ -311,7 +312,7 @@ def rebuild_issues(start_date, end_date):
 )
 def get_new_issues(categories, start_date, end_date):
     if categories is None or categories == list():
-        categories = []
+        categories = ["issue"]
     return html.Table([
                 html.Tr([
                     html.Td("Date of the issue", style={

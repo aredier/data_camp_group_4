@@ -199,7 +199,7 @@ class ReviewBase:
         """
         return self._run_sql(query_str=query_str)
 
-    def get_not_predicted(self):
+    def get_not_predicted(self, chunk_size=10000):
 
         query_str = """
         SELECT s.id, s.sentence, i.id as issue_id
@@ -211,7 +211,7 @@ class ReviewBase:
         """
         data = self._run_sql(query_str)
         data = data[pd.isna(data.iloc[:, 2])]
-        return data.drop(["issue_id"], axis=1).iloc[:10000,:]
+        return data.drop(["issue_id"], axis=1).iloc[:chunk_size,:]
 
     def select_detected_issue_from_date(self, start_date, end_date=None):
         assert type(start_date) in [date, datetime, arrow.Arrow], "start date must be a date or datetime object"
